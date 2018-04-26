@@ -1,15 +1,3 @@
-debug=0
-print('debug', debug)
-
-if not debug:
-    print('=======================================================================')
-    print('process on server...')
-    print('=======================================================================')
-else:
-    print('=======================================================================')
-    print('for testing only...')
-    print('=======================================================================')
-
 import pandas as pd
 
 import time
@@ -30,7 +18,6 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 import configs
 import math
-import glob
 
 process = psutil.Process(os.getpid())
 
@@ -109,7 +96,32 @@ DATATYPE_LIST = {
     'nextClick_shift'   : 'float64',
     'min'               : 'uint8',
     'day'               : 'uint8',
-    'hour'              : 'uint8'
+    'hour'              : 'uint8',
+    'ip_mobile_day_count_hour'                  : 'uint32',
+    'ip_mobile_app_day_count_hour'              : 'uint32',
+    'ip_mobile_channel_day_count_hour'          : 'uint32',
+    'ip_app_channel_day_count_hour'             : 'uint32',
+    'ip_mobile_app_channel_day_count_hour'      : 'uint32',
+    'ip_mobile_day_var_hour'                    : 'float16',
+    'ip_mobile_app_day_var_hour'                : 'float16',
+    'ip_mobile_channel_day_var_hour'            : 'float16',
+    'ip_app_channel_day_var_hour'               : 'float16',
+    'ip_mobile_app_channel_day_var_hour'        : 'float16',
+    'ip_mobile_day_std_hour'                    : 'float16',
+    'ip_mobile_app_day_std_hour'                : 'float16',
+    'ip_mobile_channel_day_std_hour'            : 'float16',
+    'ip_app_channel_day_std_hour'               : 'float16',
+    'ip_mobile_app_channel_day_std_hour'        : 'float16',
+    'ip_mobile_day_cumcount_hour'               : 'uint32',
+    'ip_mobile_app_day_cumcount_hour'           : 'uint32',
+    'ip_mobile_channel_day_cumcount_hour'       : 'uint32',
+    'ip_app_channel_day_cumcount_hour'          : 'uint32',
+    'ip_mobile_app_channel_day_cumcount_hour'   : 'uint32',
+    'ip_mobile_day_nunique_hour'                : 'uint32',
+    'ip_mobile_app_day_nunique_hour'            : 'uint32',
+    'ip_mobile_channel_day_nunique_hour'        : 'uint32',
+    'ip_app_channel_day_nunique_hour'           : 'uint32',
+    'ip_mobile_app_channel_day_nunique_hour'    : 'uint32'
     }
 
 TRAIN_HDF5 = 'train_day9.h5'
@@ -122,17 +134,15 @@ DATATYPE_LIST_STRING = {
     'app_channel'       : 'category',
     }
 
-if debug:
-    PATH = '../debug_processed_day9/'        
-else:
-    PATH = '../processed_day9/'                
-CAT_COMBINATION_FILENAME = PATH + 'day9_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'day9_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + 'day9_nextClick.csv'
-TIME_FILENAME = PATH + 'day9_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + 'day9_ip_hour_related.csv'
+CAT_COMBINATION_FILENAME = 'day9_cat_combination.csv'
+CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = 'day9_cat_combination_numeric_category.csv'
+NEXTCLICK_FILENAME = 'day9_nextClick.csv'
+TIME_FILENAME = 'day9_day_hour_min.csv'
+IP_HOUR_RELATED_FILENAME = 'day9_ip_hour_related.csv'
 TRAINSET_FILENAME = '../input/valid_day_9.csv'
 NCHUNKS = 100000
+
+debug=1
 NROWS=10000000
 # nrows=10
 
@@ -146,7 +156,8 @@ else:
     print('=======================================================================')
 
 SIZE_TRAIN = 53016937
-SIZE_TEST = 18790469
+SIZE_TEST = 18790468
+input = '../processed_day9/'
 
 def print_memory(print_string=''):
     print('Total memory in use ' + print_string + ': ', process.memory_info().rss/(2**30), ' GB')
@@ -234,54 +245,22 @@ def get_filename(selcols, apply_type):
     for i in range(len(selcols)-1):
         feature_name = feature_name + selcols[i] + '_'
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
-    print('>> doing feature:', feature_name)
-    filename = PATH + 'day9_' + feature_name + '.csv'
+    print('doing feature:', feature_name)
+    filename = input + 'day9_' + feature_name + '.csv'
     return filename, feature_name
 
-REMOVED_LIST = [
-    'cat_combination.csv',
-    'nextClick.csv',
-    'day_hour_min.csv',
-    'cat_combination_numeric_category.csv'
-    ]
 
-DATATYPE_DICT = {
-    'count'     : 'uint32',
-    'nunique'   : 'uint32',
-    'cumcount'  : 'uint32',
-    'var'       : 'float32',
-    'std'       : 'float32',
-    'confRate'  : 'float32',
-    'nextclick' : 'int64'
-    }
+# APPLY_TYPE_LIST = ['count', 'cumcount', 'nunique', 'var', 'std'] # will run full if enough RAM
+APPLY_TYPE_LIST = ['count', 'cumcount', 'var', 'nunique', 'std']
+APPLY_TYPE_LIST_TRAIN = ['count', 'cumcount', 'nunique']
 
-def get_datatype(feature_name):
-    datatype = 'UNKNOWN'
-    for key, type in DATATYPE_DICT.items():
-        if key in feature_name:
-            datatype = type
-            break
-    return datatype           
+selcols0 = ['ip','mobile','day','hour']
+selcols1 = ['ip','mobile_app','day','hour']
+selcols2 = ['ip','mobile_channel','day','hour']
+selcols3 = ['ip','app_channel','day','hour']
+selcols4 = ['ip', 'mobile','app_channel','day','hour']    
 
-def update_datatype_dict():
-    datatype_list = DATATYPE_LIST
-    files = glob.glob(PATH + "*.csv") 
-    print (files)
-    if debug:
-        PATH_corrected = PATH.replace('day9/', 'day9\\') 
-        removed_string = PATH_corrected + 'day9_'
-    else:
-        PATH_corrected = PATH
-        removed_string = PATH_corrected + 'day9_'        
-    print(removed_string)
-    for file in files:
-        feature_name = file.replace(removed_string,'')
-        if feature_name not in REMOVED_LIST:
-            feature_name = feature_name.split('.')[0]
-            feature_type = get_datatype(feature_name)
-            # print('feature {} has datatype {}'.format(feature_name, feature_type))
-            datatype_list[feature_name] = feature_type
-    return datatype_list
+selcols_list = [selcols0, selcols1, selcols2, selcols3, selcols4]
 
 def get_info_key_hdf5(store_name, key):
     print('-----------------------')
@@ -311,7 +290,6 @@ def add_dataset_to_hdf5(save_name, train_df, which_dataset):
             temp[feature] = train_df[feature]
             temp.to_hdf(store_name, key=feature, mode='a')
             get_info_key_hdf5(store_name, key=feature)
-    store.close()            
 
 def prepare_dataset_hdf5(which_dataset, train_df, filename, usecols, dtype = DATATYPE_LIST):
     if which_dataset == 'test':
@@ -354,38 +332,43 @@ def do_same(save_name, train_df, which_dataset):
 
     print('-------------------------------------------------------------------')
     print('load day9_cat_combination_numeric_category...')
-    filename = PATH + 'day9_cat_combination_numeric_category.csv'
+    filename = input + 'day9_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()    
 
     print('-------------------------------------------------------------------')
     print('load day9_day_hour_min...')
-    filename = PATH + 'day9_day_hour_min.csv'
+    filename = input + 'day9_day_hour_min.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['day', 'hour', 'min'])
     print_memory()
 
     print('-------------------------------------------------------------------')
     print('load day9_nextClick...')
-    filename = PATH + 'day9_nextClick.csv'
+    filename = input + 'day9_nextClick.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['nextClick', 'nextClick_shift'])
     print_memory()
-       
-    for feature_name, type in DATATYPE_LIST_UPDATED.items():
-        is_added = False
-        for key, key_datatype in DATATYPE_DICT.items():
-            if key in feature_name:
-                is_added = True
-        if is_added:                
+
+    if which_dataset == 'train':
+        apply_type_list = APPLY_TYPE_LIST
+    else:
+        apply_type_list = APPLY_TYPE_LIST                
+
+    for apply_type in apply_type_list:
+        for selcols in selcols_list:
             print('-------------------------------------------------------------------')
-            filename = PATH + 'day9_' + feature_name + '.csv'
-            print ('>> doing: {}, type {}, and save to {}'.format(feature_name, type, filename))
             print('merging...')
+            print('select column:', selcols)
+            print('apply type:', apply_type)
+            filename, feature_name = get_filename(selcols, apply_type)
             prepare_dataset_hdf5(which_dataset, train_df, filename, 
                     usecols=[feature_name])
             print_memory()
+
+    # print('saving...')
+    # train_df.to_hdf(save_name, key=which_dataset, mode='w')   
 
 def do_train():
     print('-------------------------------------------------------------------')
@@ -400,11 +383,14 @@ def do_train():
     add_dataset_to_hdf5(save_name, train_df, which_dataset)
     do_same(save_name, train_df, which_dataset)
     
+
 def do_test():
     print('-------------------------------------------------------------------')
     print('do TEST')
     print('-------------------------------------------------------------------')
     print('load dataset...')
+    # train_df, test_df = read_train_test('is_not_merged', usecols_train=['is_attributed'],
+    #             usecols_test=['click_id'])
     train_df, test_df = read_train_test('is_not_merged')                
     del train_df; gc.collect()
     print_memory()
@@ -412,23 +398,6 @@ def do_test():
     save_name='test_day9.h5'
     add_dataset_to_hdf5(save_name, test_df, which_dataset)
     do_same(save_name, test_df, which_dataset)
-    
-DATATYPE_LIST_UPDATED = update_datatype_dict()
-
-for key, type in DATATYPE_LIST_UPDATED.items():
-    print (key, type)    
 
 do_test()
-# do_train()
-
-print('============================================================================')
-print('FINAL SUMMARY')
-print('============================================================================')
-print('train:')
-store = pd.HDFStore(TRAIN_HDF5)
-print(store)
-print('--------------------------------')
-print('test:')
-store = pd.HDFStore(TEST_HDF5)
-print(store)
-
+do_train()

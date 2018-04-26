@@ -1,4 +1,4 @@
-debug=1
+debug=0
 print('debug', debug)
 
 
@@ -463,7 +463,7 @@ def generate_click_anttip(train_df, cols, which_click):
         feature_name = '_'.join(cols)+'_prevclick'                  
     filename = PATH + 'day9_' + feature_name + '.csv'
     print('-----------------------------------------------------')
-    print('>> doing feature:', feature_name)
+    print('>> doing feature:', feature_name, 'save to', filename)
     if os.path.exists(filename) and debug!=2:
         print ('done already...', filename)
     else:
@@ -472,11 +472,13 @@ def generate_click_anttip(train_df, cols, which_click):
         train_df['category'] = ''
         for col in cols:
             train_df['category'] = train_df['category'] + '_' + train_df[col].map(str)
+        print_memory()            
 
         if debug: print (train_df.head())
         train_df['category'] = train_df['category'].apply(hash) % D
         print (train_df.head())
         click_buffer= np.full(D, 3000000000, dtype=np.uint32)
+        print_memory()
 
         print('find epochtime...')
         train_df['epochtime']= train_df['click_time'].astype(np.int64) // 10 ** 9
@@ -485,7 +487,7 @@ def generate_click_anttip(train_df, cols, which_click):
         if which_click == 'next':
             next_clicks= []
             for category, t in zip(reversed(train_df['category'].values), reversed(train_df['epochtime'].values)):
-                if i%100000 == 0: print ('process', i)
+                if i%100000 == 0: print ('process', i); print_memory()
                 i = i+1                    
                 next_clicks.append(click_buffer[category]-t)
                 click_buffer[category]= t
@@ -495,7 +497,7 @@ def generate_click_anttip(train_df, cols, which_click):
         else:
             prev_clicks= []
             for category, time in zip(train_df['category'].values, train_df['epochtime'].values):
-                if i%100000 == 0: print ('process', i)
+                if i%100000 == 0: print ('process', i); print_memory()
                 i = i+1  
                 prev_clicks.append(time-click_buffer[category])
                 click_buffer[category]= time
@@ -533,7 +535,7 @@ def main():
     # train_df = create_great_features(train_df)
     # create_kernel_features(train_df)
 
-    create_kernel_click_anttip(train_df, 'prev')
+    # create_kernel_click_anttip(train_df, 'prev')
     create_kernel_click_anttip(train_df, 'next')
     
     
