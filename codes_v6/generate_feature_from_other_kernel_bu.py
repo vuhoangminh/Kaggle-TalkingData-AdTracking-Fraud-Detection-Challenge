@@ -189,16 +189,7 @@ def print_memory(print_string=''):
     print('Total memory in use ' + print_string + ': ', process.memory_info().rss/(2**30), ' GB')
 
 def read_train(usecols_train, filename):
-    if debug==2:
-        if 'click_time' in usecols_train:
-            train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST, parse_dates=['click_time'],
-                usecols=usecols_train)
-        else:
-            train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST, 
-                usecols=usecols_train)  
-    if debug==1:
+    if debug:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, 
                 skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST, parse_dates=['click_time'],
@@ -206,8 +197,8 @@ def read_train(usecols_train, filename):
         else:
             train_df = pd.read_csv(filename, 
                 skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST, 
-                usecols=usecols_train)                
-    if debug==0:
+                usecols=usecols_train)
+    else:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, parse_dates=['click_time'],
                 dtype=DATATYPE_LIST, usecols=usecols_train)           
@@ -274,7 +265,7 @@ def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
     print('>> doing feature:', feature_name)
     filename = PATH + 'day9_' + feature_name + '.csv'
-    if os.path.exists(filename) and debug!=2:
+    if os.path.exists(filename):
         print ('done already...')
     else:
         if apply_type == 'count':
@@ -395,7 +386,7 @@ def generate_confidence(train_df, cols):
     feature_name = '_'.join(cols)+'_confRate'    
     filename = PATH + 'day9_' + feature_name + '.csv'
     
-    if os.path.exists(filename) and debug!=2:
+    if os.path.exists(filename):
         print  ('done already...', filename)
     else:
         # Perform the groupby
@@ -455,54 +446,76 @@ GROUP_BY_NEXT_CLICKS = [
     ['ip', 'os', 'device', 'channel', 'app']
 ]
 
-def generate_click_anttip(train_df, cols, which_click):   
-    # Name of new feature        
+def generate_click(train_df, spec, which_click):   
+    # Name of new feature
+        # Name of new feature
     if which_click == 'next':        
-        feature_name = '_'.join(cols)+'_nextclick'   
+        feature_name = '{}_nextClick'.format('_'.join(spec['groupby']))    
     else:
-        feature_name = '_'.join(cols)+'_prevclick'                  
+        feature_name = '{}_prevClick'.format('_'.join(spec['groupby']))                    
     filename = PATH + 'day9_' + feature_name + '.csv'
-    print('-----------------------------------------------------')
-    print('>> doing feature:', feature_name)
-    if os.path.exists(filename) and debug!=2:
+    
+    if os.path.exists(filename):
         print ('done already...', filename)
     else:
-        D=2**26
-        print('find category...')
-        train_df['category'] = ''
-        for col in cols:
-            train_df['category'] = train_df['category'] + '_' + train_df[col].map(str)
-
-        if debug: print (train_df.head())
-        train_df['category'] = train_df['category'].apply(hash) % D
-        print (train_df.head())
-        click_buffer= np.full(D, 3000000000, dtype=np.uint32)
-
-        print('find epochtime...')
-        train_df['epochtime']= train_df['click_time'].astype(np.int64) // 10 ** 9
+        # Unique list of features to select
+        all_features = spec['groupby'] + ['click_time']
+        
+        # Run calculation
+        print(">> Grouping by: {}.\n Saving to next click in {}". \
+            format(
+                spec['groupby'],
+                filename
+            ))
         col_extracted = pd.DataFrame()
-        i = 0
-        if which_click == 'next':
-            next_clicks= []
-            for category, t in zip(reversed(train_df['category'].values), reversed(train_df['epochtime'].values)):
-                if i%100000 == 0: print ('process', i)
-                i = i+1                    
-                next_clicks.append(click_buffer[category]-t)
-                click_buffer[category]= t
-            del(click_buffer); gc.collect()
-            col_extracted[feature_name] = list(reversed(next_clicks))
-            del next_clicks; gc.collect()
+        if which_click == 'next':     
+            col_extracted[feature_name] = train_df[all_features]. \
+                    groupby(spec['groupby']).click_time. \
+                    transform(lambda x: x.diff().shift(-1)).dt.seconds
         else:
-            prev_clicks= []
-            for category, time in zip(train_df['category'].values, train_df['epochtime'].values):
-                if i%100000 == 0: print ('process', i)
-                i = i+1  
-                prev_clicks.append(time-click_buffer[category])
-                click_buffer[category]= time
-            del(click_buffer); gc.collect()
-            col_extracted[feature_name] = list(prev_clicks)
-            del prev_clicks; gc.collect()
-        if debug: print(col_extracted.describe()); print(col_extracted.head()); print(col_extracted.info())
+            col_extracted[feature_name] = train_df[all_features]. \
+                    groupby(spec['groupby']).click_time. \
+                    transform(lambda x: x.diff().shift(1)).dt.seconds
+
+        print('saving...')
+        col_extracted.to_csv(filename, index=False)
+        del col_extracted            
+        print_memory()
+
+def create_kernel_click(train_df, which_click):
+    for spec in GROUP_BY_NEXT_CLICKS:
+        generate_click(train_df, spec, which_click)
+
+def generate_click_anttip(train_df, spec, which_click):   
+    # Name of new feature
+    feature_name = '_'.join(cols)+'_confRate'            
+    if which_click == 'next':        
+        feature_name = '_'.join(cols)+'_confRate'   
+    else:
+        feature_name = '_'.join(cols)+'_confRate'                  
+    filename = PATH + 'day9_' + feature_name + '.csv'
+    
+    if os.path.exists(filename):
+        print ('done already...', filename)
+    else:
+        # Unique list of features to select
+        all_features = spec['groupby'] + ['click_time']
+        
+        # Run calculation
+        print(">> Grouping by: {}.\n Saving to next click in {}". \
+            format(
+                spec['groupby'],
+                filename
+            ))
+        col_extracted = pd.DataFrame()
+        if which_click == 'next':     
+            col_extracted[feature_name] = train_df[all_features]. \
+                    groupby(spec['groupby']).click_time. \
+                    transform(lambda x: x.diff().shift(-1)).dt.seconds
+        else:
+            col_extracted[feature_name] = train_df[all_features]. \
+                    groupby(spec['groupby']).click_time. \
+                    transform(lambda x: x.diff().shift(1)).dt.seconds
 
         print('saving...')
         col_extracted.to_csv(filename, index=False)
@@ -510,31 +523,38 @@ def generate_click_anttip(train_df, cols, which_click):
         print_memory()
 
 
-def create_kernel_click_anttip(train_df, which_click):
-    for cols in GROUP_BY_NEXT_CLICKS:
-        generate_click_anttip(train_df, cols, which_click)
+def create_kernel_click_anttip(train_df, which_click, selcols):
+    D= 2**26
+    df['category'] = (df['ip'].astype(str) + "_" + df['app'].astype(str) + "_" + df['device'].astype(str) \
+                        + "_" + df['os'].astype(str)).apply(hash) % D
+    click_buffer= np.full(D, 3000000000, dtype=np.uint32)
+    df['epochtime']= df['click_time'].astype(np.int64) // 10 ** 9
+    next_clicks= []
+    for category, time in zip(reversed(df['category'].values), reversed(df['epochtime'].values)):
+        next_clicks.append(click_buffer[category]-time)
+        click_buffer[category]= time
+    del(click_buffer)
+    df['next_click']= list(reversed(next_clicks))
 
 def main():
     train_df = read_train_test('is_merged')
     if debug: print(train_df.info())
-    # print('load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
-    # gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
-    #         usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], 
-    #         dtype=DATATYPE_LIST)
-    # train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-    # del gp; gc.collect()
-    # print_memory('after reading new cat')
-    # gp = pd.read_csv(TIME_FILENAME, 
-    #         usecols=['hour', 'day'],dtype=DATATYPE_LIST)
-    # train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-    # del gp; gc.collect()
-    # print_memory('after reading time')
-
+    print('load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
+    gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
+            usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], 
+            dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading new cat')
+    gp = pd.read_csv(TIME_FILENAME, 
+            usecols=['hour', 'day'],dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading time')
     # train_df = create_great_features(train_df)
-    # create_kernel_features(train_df)
-
-    create_kernel_click_anttip(train_df, 'prev')
-    create_kernel_click_anttip(train_df, 'next')
+    create_kernel_features(train_df)
+    create_kernel_click(train_df, 'prev')
+    create_kernel_click(train_df, 'next')
     
     
     # create_kernel_confidence(train_df)
