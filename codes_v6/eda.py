@@ -1,4 +1,8 @@
-debug=1
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
+
+debug=2
 print('debug', debug)
 
 if not debug:
@@ -33,7 +37,20 @@ import math
 import glob
 import datetime
 
+
+
 process = psutil.Process(os.getpid())
+
+now = datetime.datetime.now()
+if now.month<10:
+    month_string = '0'+str(now.month)
+else:
+    month_string = str(now.month)
+if now.day<10:
+    day_string = '0'+str(now.day)
+else:
+    day_string = str(now.day)
+yearmonthdate_string = str(now.year) + month_string + day_string
 
 # # init vars
 # CATEGORY_LIST = configs.cat_list
@@ -120,16 +137,15 @@ SEED = 1988
 frac = 0.7
 process = psutil.Process(os.getpid())
 
-now = datetime.datetime.now()
-if now.month<10:
-    month_string = '0'+str(now.month)
-else:
-    month_string = str(now.month)
-if now.day<10:
-    day_string = '0'+str(now.day)
-else:
-    day_string = str(now.day)
-yearmonthdate_string = str(now.year) + month_string + day_string
+if debug==2:
+    start_point = 1 
+    end_point = 1000
+if debug==1:
+    start_point = 1 
+    end_point = 1000000
+if debug==0:
+    start_point = 1 
+    end_point = 10000000
 
 
 DATATYPE_DICT = {
@@ -152,51 +168,55 @@ def is_processed(feature):
             is_processed = False
     return is_processed            
 
-with h5py.File(TEST_HDF5,'r') as hf:
-    feature_list = list(hf.keys())
+
+def read_processed_h5(start_point, end_point, filename):
+    with h5py.File(filename,'r') as hf:
+        feature_list = list(hf.keys())
+
+    train_df = pd.DataFrame()
+    t0 = time.time()
+    for feature in feature_list:
+        if feature!='dump_later' and not is_processed(feature):
+            print('>> adding', feature)
+            train_df[feature] = pd.read_hdf(filename, key=feature,
+                    start=start_point, stop=end_point)    
+            print_memory()
+    t1 = time.time()
+    total = t1-t0
+    print('total reading time:', total)
+    return train_df
 
 
-train_df = pd.DataFrame()
-
-t0 = time.time()
-for feature in feature_list:
-    if feature!='dump_later' and not is_processed(feature):
-        print('adding', feature)
-        # train_df[feature] = pd.read_hdf(TRAIN_HDF5, key=feature,
-                # start=0, stop=300)
-        train_df[feature] = pd.read_hdf(TEST_HDF5, key=feature)                
-        print(train_df.head())     
-        print_memory()
-
-
-t1 = time.time()
-total = t1-t0
-print('total reading time:', total)
-
-print(train_df.info())
+def draw_save_heatmap(start_point, end_point, filename):
+    train_df = read_processed_h5(start_point, end_point, filename)
+    print(train_df.info())
+    sns.heatmap(train_df.corr(),annot=True,
+            xticklabels=1, yticklabels=1, cmap='RdYlGn',linewidths=0.2)
+    fig=plt.gcf()
+    fig.set_size_inches(50,50)
+    savename = yearmonthdate_string + '_' + str(start_point)  \
+        + '_' + str(end_point) + '_' + filename + '_heatmap.png'
+    plt.savefig(savename)
+    # plt.show()
 
 
+def eda():
+    end_point_list = [10000000]
+    filename_list = [TRAIN_HDF5, TEST_HDF5]
+    for filename in filename_list:
+        for end_point in end_point_list:
+            start_point = 1
+            draw_save_heatmap(start_point, end_point, filename)
+
+def find_predictors(filename, expected_num_feature):
+    train_df = read_processed_h5(start_point, end_point, filename)
+    predictors = []
+    features = list(train_df)
+    if debug: 
+        for feature in  features: 
+            print (feature)
+
+    return predictors
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# print('reading test')
-# test_h5 = pd.HDFStore('test_day9.h5')
-# print(test_h5)
-# test_df = test_h5.select('test') 
-
-# sns.heatmap(test_df.corr(),annot=True,cmap='RdYlGn',linewidths=0.2)
-# fig=plt.gcf()
-# fig.set_size_inches(50,50)
-# plt.show()
+find_predictors(TRAIN_HDF5, 5)

@@ -1,7 +1,20 @@
-"""
-A non-blending lightGBM model that incorporates portions and ideas from various public kernels
-This kernel gives LB: 0.977 when the parameter 'debug' below is set to 0 but this implementation requires a machine with ~32 GB of memory
-"""
+debug=0
+print('debug', debug)
+
+if debug==0:
+    print('=======================================================================')
+    print('process on server...')
+    print('=======================================================================')
+if debug==1:
+    print('=======================================================================')
+    print('for testing only...')
+    print('=======================================================================')
+if debug==2:
+    print('=======================================================================')
+    print('for LIGHT TEST only...')
+    print('=======================================================================')
+
+
 
 import pandas as pd
 import time
@@ -14,6 +27,7 @@ import os
 import pickle
 import psutil
 import datetime
+import h5py
 
 SEED = 1988
 process = psutil.Process(os.getpid())
@@ -31,85 +45,56 @@ yearmonthdate_string = str(now.year) + month_string + day_string
 
 boosting_type = 'gbdt'
 # boosting_type = 'dart'
-frac = 0.7
 
-frm=10
-to=180000010
 
-# frm=1000
-# to=1001000
-
-DATATYPE_LIST = {
-    'ip'                : 'uint32',
-    'app'               : 'uint16',
-    'device'            : 'uint16',
-    'os'                : 'uint16',
-    'channel'           : 'uint16',
-    'is_attributed'     : 'uint8',
-    'click_id'          : 'uint32',
-    'mobile'            : 'uint16',
-    'mobile_app'        : 'uint16',
-    'mobile_channel'    : 'uint16',
-    'app_channel'       : 'uint16',
-    'category'          : 'category',
-    'epochtime'         : 'int64',
-    'nextClick'         : 'int64',
-    'nextClick_shift'   : 'float64',
-    'min'               : 'uint8',
-    'day'               : 'uint8',
-    'hour'              : 'uint8',
-    'ip_mobile_day_count_hour'                  : 'uint32',
-    'ip_mobile_app_day_count_hour'              : 'uint32',
-    'ip_mobile_channel_day_count_hour'          : 'uint32',
-    'ip_app_channel_day_count_hour'             : 'uint32',
-    'ip_mobile_app_channel_day_count_hour'      : 'uint32',
-    'ip_mobile_day_var_hour'                    : 'float16',
-    'ip_mobile_app_day_var_hour'                : 'float16',
-    'ip_mobile_channel_day_var_hour'            : 'float16',
-    'ip_app_channel_day_var_hour'               : 'float16',
-    'ip_mobile_app_channel_day_var_hour'        : 'float16',
-    'ip_mobile_day_std_hour'                    : 'float16',
-    'ip_mobile_app_day_std_hour'                : 'float16',
-    'ip_mobile_channel_day_std_hour'            : 'float16',
-    'ip_app_channel_day_std_hour'               : 'float16',
-    'ip_mobile_app_channel_day_std_hour'        : 'float16',
-    'ip_mobile_day_cumcount_hour'               : 'uint32',
-    'ip_mobile_app_day_cumcount_hour'           : 'uint32',
-    'ip_mobile_channel_day_cumcount_hour'       : 'uint32',
-    'ip_app_channel_day_cumcount_hour'          : 'uint32',
-    'ip_mobile_app_channel_day_cumcount_hour'   : 'uint32',
-    'ip_mobile_day_nunique_hour'                : 'uint32',
-    'ip_mobile_app_day_nunique_hour'            : 'uint32',
-    'ip_mobile_channel_day_nunique_hour'        : 'uint32',
-    'ip_app_channel_day_nunique_hour'           : 'uint32',
-    'ip_mobile_app_channel_day_nunique_hour'    : 'uint32'
-    }
+frac = 1
+frm = 1; to = 100
 
 TARGET = ['is_attributed']
 
-# PREDICTORS = [
-#     'mobile', 'mobile_app', 'mobile_channel', 'app_channel',
-#     'nextClick', 'nextClick_shift', 'hour',
-#     'ip_mobile_day_count_hour', 'ip_mobile_app_day_count_hour' ,'ip_mobile_channel_day_count_hour',
-#     'ip_app_channel_day_count_hour', 'ip_mobile_app_channel_day_count_hour',
-#     'ip_mobile_day_var_hour', 'ip_mobile_app_day_var_hour', 'ip_mobile_channel_day_var_hour',      
-#     'ip_app_channel_day_var_hour', 'ip_mobile_app_channel_day_var_hour',  
-#     'ip_mobile_day_std_hour', 'ip_mobile_app_day_std_hour', 'ip_mobile_channel_day_std_hour',
-#     'ip_app_channel_day_std_hour', 'ip_mobile_app_channel_day_std_hour',
-#     'ip_mobile_day_cumcount_hour', 'ip_mobile_app_day_cumcount_hour', 'ip_mobile_channel_day_cumcount_hour',      
-#     'ip_app_channel_day_cumcount_hour', 'ip_mobile_app_channel_day_cumcount_hour'   
+TRAIN_HDF5 = 'train_day9.h5'
+TEST_HDF5 = 'test_day9.h5'
+
+
+# OPTION 1 - OVERFITTING
+# PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+#     'app_confRate',
+#     'device_confRate',
+#     'ip_app_channel_day_count_hour',
+#     'ip_app_channel_day_nunique_hour',
+#     'ip_app_channel_day_std_hour',
+#     'ip_app_confRate',
+#     'ip_app_nextclick',
+#     'ip_channel_nextclick',
+#     'ip_confRate',
+#     'ip_device_os_nextclick',
+#     'ip_mobile_app_channel_day_std_hour',
+#     'ip_mobile_app_day_std_hour',
+#     'ip_mobile_channel_day_std_hour',
+#     'ip_mobile_day_std_hour',
+#     'ip_nextclick',
+#     'ip_os_device_app_nextclick',
+#     'ip_os_device_channel_app_nextclick',
+#     'mobile_app_confRate'
 #     ]  
 
-PREDICTORS = [
-    'mobile', 'mobile_app', 'mobile_channel', 'app_channel',
-    'nextClick', 'nextClick_shift', 'hour',
-    'ip_mobile_day_var_hour', 'ip_mobile_app_day_var_hour', 'ip_mobile_channel_day_var_hour',      
-    'ip_app_channel_day_var_hour', 'ip_mobile_app_channel_day_var_hour',  
-    'ip_mobile_day_cumcount_hour', 'ip_mobile_channel_day_cumcount_hour',      
-    'ip_app_channel_day_cumcount_hour',
-    'ip_mobile_day_nunique_hour', 'ip_mobile_channel_day_nunique_hour',      
-    'ip_mobile_app_channel_day_nunique_hour' 
-    ]  
+
+# OPTION 2
+PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+    'app_confRate',
+    'device_confRate',
+    'ip_confRate',
+    'ip_app_channel_day_count_hour',
+    'ip_app_channel_day_nunique_hour',
+    'ip_app_channel_day_var_hour',
+    'ip_app_nextclick',
+    'ip_channel_nextclick',  
+    'ip_device_os_nextclick',   
+    'ip_os_device_app_nextclick',
+    'ip_os_device_channel_app_nextclick',
+    'mobile_app_confRate'
+    ] 
+
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -119,7 +104,6 @@ CATEGORICAL = [
 
 TARGET = ['is_attributed']
 
-debug=0
 if not debug:
     print('=======================================================================')
     print('process on server...')
@@ -221,15 +205,41 @@ def lgb_modelfit_nocv(params, train_df_array, train_df_labels, val_df_array, val
 
     return (bst1,bst1.best_iteration)
 
+
+def read_processed_h5(filename, predictors):
+    with h5py.File(filename,'r') as hf:
+        feature_list = list(hf.keys())
+    train_df = pd.DataFrame()
+    t0 = time.time()
+    for feature in feature_list:
+        if feature!='dump_later' and feature in predictors:
+            print('>> adding', feature)
+            if debug==2:
+                train_df[feature] = pd.read_hdf(filename, key=feature, 
+                        start=0, stop=100)        
+            else:
+                train_df[feature] = pd.read_hdf(filename, key=feature)                                 
+            print_memory()
+    t1 = time.time()
+    total = t1-t0
+    print('total reading time:', total)
+    print(train_df.info())   
+    return train_df
+
+
 def DO(frm,to,fileno,num_leaves,max_depth):
 
     print('------------------------------------------------')
     print('start...')
+    print('fraction:', frac)
+    print('prepare predictors, categorical and target...')
+    predictors = get_predictors()
+    categorical = get_categorical(predictors)
+    target = TARGET
+    print('taget', target)
 
     print('reading train')
-    train_h5 = pd.HDFStore('train_day9.h5')
-    print(train_h5)
-    train_df = train_h5.select('train') 
+    train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
 
     train_df = train_df.sample(frac=frac, random_state = SEED)
     print_memory('afer reading train')
@@ -241,13 +251,6 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     print("valid size: ", len(val_df))
 
     gc.collect()
-
-    print('fraction:', frac)
-    print('prepare predictors, categorical and target...')
-    predictors = get_predictors()
-    categorical = get_categorical(predictors)
-    target = TARGET
-    print('taget', target)
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
@@ -290,7 +293,6 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     del val_df; gc.collect()
     print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
 
-
     (bst,best_iteration) = lgb_modelfit_nocv(params, 
                             train_df_array, 
                             train_df_labels,
@@ -314,9 +316,7 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     bst.save_model(modelfilename+'.txt')
 
     print('reading test')
-    test_h5 = pd.HDFStore('test_day9.h5')
-    print(test_h5)
-    test_df = test_h5.select('test') 
+    test_df = read_processed_h5(TEST_HDF5,predictors+['click_id'])
     print(test_df.info()); print(test_df.head())
     print_memory()
 
@@ -332,11 +332,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     print("done...")
     return sub
 
-# num_leaves_list = [7,9,11,13,15,31,31,9]
-# max_depth_list = [3,4,5,6,7,5,6,5]
+num_leaves_list = [7,9,11,13,15,31,31,9]
+max_depth_list = [3,4,5,6,7,5,6,5]
 
-num_leaves_list = [7]
-max_depth_list = [3]
+# num_leaves_list = [7]
+# max_depth_list = [3]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')
