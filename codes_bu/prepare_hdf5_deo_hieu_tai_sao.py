@@ -12,6 +12,8 @@ else:
 
 import pandas as pd
 import h5py
+
+
 import time
 import numpy as np
 from sklearn.cross_validation import train_test_split
@@ -23,7 +25,7 @@ import pickle
 import psutil
 import random as rnd
 import os
-import featuretools as ft
+# import featuretools as ft
 # visualization
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -262,18 +264,24 @@ def add_dataset_to_hdf5(save_name, train_df, which_dataset):
     #     print ('add dump')
     #     dump_df = pd.DataFrame({'col1':[0,2,3,2],'col2':[1,0,0,1]})
     #     dump_df.to_hdf(store_name, 'dump_later', mode='a')
-    # # print(store_name)     
-    # # store = pd.io.pytables.HDFStore(store_name)
-    store = pd.HDFStore(store_name) 
-    existing_key = store.keys()
+    # print(store_name)     
+    # store = pd.io.pytables.HDFStore(store_name)
+    # if not os.path.exists(store_name):
+    #     print('creating file', which_dataset)
+    store = h5py.File(store_name, 'w') 
     for feature in usecols:
         key = '/' + feature
+
+        hf = h5py.File(store_name, 'r')
+        existing_key = list(hf.keys())                
         if key in existing_key:
             print ('feature already added...')
         else:                    
             print ('add key to hdf5...')                        
             temp = pd.DataFrame()
             temp[feature] = train_df[feature]
+            # store.create_dataset(feature, data=temp)
+            # store.close()
             temp.to_hdf(store_name, key=feature, mode='a')
             get_info_key_hdf5(store_name, key=feature)          
 
@@ -292,9 +300,9 @@ def prepare_dataset_hdf5(which_dataset, train_df, filename, usecols, dtype = DAT
             nrows = NROWS
         else:
             nrows = SIZE_TRAIN
-        store_name = TRAIN_HDF5                        
-    store = pd.HDFStore(store_name) 
-    existing_key = store.keys()
+        store_name = TRAIN_HDF5  
+    store = h5py.File(store_name, 'r') 
+    existing_key = list(store.keys())
     # print(existing_key)
     for feature in usecols:
         key = '/' + feature
@@ -406,23 +414,13 @@ for key, type in DATATYPE_LIST_UPDATED.items():
 # do_test()
 # do_train()
 
-print('============================================================================')
-print('FINAL SUMMARY')
-print('============================================================================')
-print('-----------------------------------------------------')
-print('reading train')
-train_h5 = pd.HDFStore(TRAIN_HDF5)
-print(train_h5)
-train_df = train_h5.select('ip_mobile_channel_day_cumcount_hour') 
-print(train_df.info()); print(train_df.head())
-print_memory()
-
-print('-----------------------------------------------------')
-print('reading test')
-train_h5 = pd.HDFStore(TEST_HDF5)
-print(train_h5)
-train_df = train_h5.select('ip_mobile_channel_day_cumcount_hour') 
-print(train_df.info()); print(train_df.head())
-print_memory()
 
 
+# hf = h5py.File('abc.h5', 'w')
+# hf.close()
+
+
+# hf = h5py.File('data.h5', 'r')
+
+store = pd.HDFStore(TEST_HDF5)
+print(store)
