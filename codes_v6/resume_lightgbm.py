@@ -1,20 +1,6 @@
 debug=0
 print('debug', debug)
 
-if debug==0:
-    print('=======================================================================')
-    print('process on server...')
-    print('=======================================================================')
-if debug==1:
-    print('=======================================================================')
-    print('for testing only...')
-    print('=======================================================================')
-if debug==2:
-    print('=======================================================================')
-    print('for LIGHT TEST only...')
-    print('=======================================================================')
-
-
 
 import pandas as pd
 import time
@@ -95,8 +81,21 @@ TEST_HDF5 = 'test_day9.h5'
 #     'mobile_app_confRate'
 #     ] 
 
-# OPTION 2
+# OPTION 3 - PREVIOUS RESULT
 PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+    'ip_nunique_channel',
+    'ip_device_os_cumcount_app',
+    'ip_day_nunique_hour',
+    'ip_nunique_app',
+    'ip_app_nunique_os',
+    'ip_nunique_device',
+    'app_nunique_channel',
+    'ip_cumcount_os',
+    'ip_device_os_nunique_app',
+    'nextClick',
+    'ip_day_hour_count_channel',
+    'ip_app_count_channel',
+    'ip_app_os_count_channel',
     'app_confRate',
     'device_confRate',
     'ip_confRate',
@@ -254,7 +253,20 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     target = TARGET
     print('taget', target)
 
-    print('reading train')
+
+    if debug==0:
+        print('=======================================================================')
+        print('process on server...')
+        print('=======================================================================')
+    if debug==1:
+        print('=======================================================================')
+        print('for testing only...')
+        print('=======================================================================')
+    if debug==2:
+        print('=======================================================================')
+        print('for LIGHT TEST only...')
+        print('=======================================================================')
+        print('reading train')
     train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
 
     train_df = train_df.sample(frac=frac, random_state = SEED)
@@ -348,11 +360,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     print("done...")
     return sub
 
-num_leaves_list = [7,9,11,13,15,31,31,9]
-max_depth_list = [3,4,5,6,7,5,6,5]
+# num_leaves_list = [7,9,11,13,15,31,31,9]
+# max_depth_list = [3,4,5,6,7,5,6,5]
 
-# num_leaves_list = [7]
-# max_depth_list = [3]
+num_leaves_list = [7]
+max_depth_list = [3]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')

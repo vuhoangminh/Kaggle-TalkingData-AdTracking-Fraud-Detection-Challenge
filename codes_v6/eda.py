@@ -172,7 +172,6 @@ def is_processed(feature):
 def read_processed_h5(start_point, end_point, filename):
     with h5py.File(filename,'r') as hf:
         feature_list = list(hf.keys())
-
     train_df = pd.DataFrame()
     t0 = time.time()
     for feature in feature_list:
@@ -199,6 +198,33 @@ def draw_save_heatmap(start_point, end_point, filename):
     plt.savefig(savename)
     # plt.show()
 
+def read_processed_h5_full(start_point, end_point, filename):
+    with h5py.File(filename,'r') as hf:
+        feature_list = list(hf.keys())
+    train_df = pd.DataFrame()
+    t0 = time.time()
+    for feature in feature_list:
+        if feature!='dump_later':
+            print('>> adding', feature)
+            train_df[feature] = pd.read_hdf(filename, key=feature,
+                    start=start_point, stop=end_point)    
+            print_memory()
+    t1 = time.time()
+    total = t1-t0
+    print('total reading time:', total)
+    return train_df
+
+
+def print_all_features(start_point, end_point, filename):
+    train_df = read_processed_h5_full(start_point, end_point, filename)
+    features = list(train_df)
+    if debug: 
+        for feature in  features: 
+            print (feature)
+    print(train_df)      
+    temp_df = train_df[CATEGORY_LIST]
+    print(temp_df)
+
 
 def eda():
     end_point_list = [10000000]
@@ -218,5 +244,7 @@ def find_predictors(filename, expected_num_feature):
 
     return predictors
 
+# find_predictors(TRAIN_HDF5, 5)
 
-find_predictors(TRAIN_HDF5, 5)
+print_all_features(0, 10, TRAIN_HDF5)
+

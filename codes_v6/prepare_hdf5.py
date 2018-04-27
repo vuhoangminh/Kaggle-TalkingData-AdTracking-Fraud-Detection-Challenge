@@ -211,7 +211,8 @@ DATATYPE_DICT = {
     'var'       : 'float32',
     'std'       : 'float32',
     'confRate'  : 'float32',
-    'nextclick' : 'int64'
+    'nextclick' : 'int64',
+    'mean'      : 'float32'
     }
 
 def get_datatype(feature_name):
@@ -321,6 +322,13 @@ def do_same(save_name, train_df, which_dataset):
     filename = PATH + 'day9_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
+    print_memory()  
+
+    print('-------------------------------------------------------------------')
+    print('load day9_cat_combination_numeric_category...')
+    filename = PATH + 'day9_cat_combination_numeric_category.csv'
+    prepare_dataset_hdf5(which_dataset, train_df, 
+            filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()    
 
     print('-------------------------------------------------------------------')
@@ -387,24 +395,8 @@ for key, type in DATATYPE_LIST_UPDATED.items():
 # print('FINAL SUMMARY')
 # print('============================================================================')
 
-
-
-# print('train:')
-# # store = pd.HDFStore(TRAIN_HDF5)
-# store = pd.read_hdf(TRAIN_HDF5, 'nextClick')
-# print(store)
-
-# f = h5py.File(TRAIN_HDF5, 'r')
-# print(list(f.keys()))
-
-# print('--------------------------------')
-# print('test:')
-# store = pd.HDFStore(TEST_HDF5)
-# print(store)
-
-
-# do_test()
-# do_train()
+do_test()
+do_train()
 
 print('============================================================================')
 print('FINAL SUMMARY')
