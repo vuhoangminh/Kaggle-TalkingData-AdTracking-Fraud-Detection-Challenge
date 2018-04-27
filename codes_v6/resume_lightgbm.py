@@ -79,6 +79,22 @@ TEST_HDF5 = 'test_day9.h5'
 #     ]  
 
 
+# # OPTION 2
+# PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+#     'app_confRate',
+#     'device_confRate',
+#     'ip_confRate',
+#     'ip_app_channel_day_count_hour',
+#     'ip_app_channel_day_nunique_hour',
+#     'ip_app_channel_day_var_hour',
+#     'ip_app_nextclick',
+#     'ip_channel_nextclick',  
+#     'ip_device_os_nextclick',   
+#     'ip_os_device_app_nextclick',
+#     'ip_os_device_channel_app_nextclick',
+#     'mobile_app_confRate'
+#     ] 
+
 # OPTION 2
 PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
     'app_confRate',
@@ -93,7 +109,7 @@ PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
     'ip_os_device_app_nextclick',
     'ip_os_device_channel_app_nextclick',
     'mobile_app_confRate'
-    ] 
+    ]     
 
 
 CATEGORICAL = [

@@ -1,9 +1,6 @@
 debug=0
 print('debug', debug)
 
-
-
-
 import argparse
 import pandas as pd
 import time
@@ -295,7 +292,11 @@ def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):
         if apply_type == 'nunique':
             col_temp = train_df[selcols]. \
                 groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].nunique(). \
-                reset_index().rename(index=str, columns={selcols[len(selcols)-1]: feature_name})                       
+                reset_index().rename(index=str, columns={selcols[len(selcols)-1]: feature_name})   
+        if apply_type == 'mean':
+            col_temp = train_df[selcols]. \
+                groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].mean(). \
+                reset_index().rename(index=str, columns={selcols[len(selcols)-1]: feature_name})   
 
         col_extracted = pd.DataFrame()
         if apply_type != 'cumcount':
@@ -371,10 +372,7 @@ def create_kernel_features(train_df):
     feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
     print_memory()
     new_feature_list.append(feature_name)
-
-
     return train_df
-
 
 ATTRIBUTION_CATEGORIES = [        
     # V1 Features #
@@ -516,27 +514,75 @@ def create_kernel_click_anttip(train_df, which_click):
     for cols in GROUP_BY_NEXT_CLICKS:
         generate_click_anttip(train_df, cols, which_click)
 
+REPLICATE_LIST_NUNIQUE = [
+    ['ip', 'channel'],
+    ['ip', 'day', 'hour'],
+    ['ip', 'app'],
+    ['ip', 'app', 'os'],
+    ['ip', 'device'],
+    ['app', 'channel'],
+    ['ip', 'device', 'os', 'app'],
+    ['ip','day','hour','channel'],
+    ['ip', 'app', 'channel'],
+    ['ip','app', 'os', 'channel'],
+]
+
+REPLICATE_LIST_CUMCOUNT = [
+    ['ip', 'device', 'os', 'app'],
+    ['ip', 'os']
+]
+
+REPLICATE_LIST_VAR = [
+    ['ip','day','hour','channel'],
+    ['ip', 'os'],
+    ['ip','app', 'os', 'hour'],
+    ['ip','app', 'channel', 'day'],
+]
+
+REPLICATE_LIST_MEAN = [
+    ['ip','app', 'channel','hour']
+]
+
+def replicate_result(train_df):
+    new_feature_list=[]
+    # get nunique
+    apply_type = 'nunique'
+    for selcols in REPLICATE_LIST_NUNIQUE:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)
+    # get nunique
+    apply_type = 'cumcount'
+    for selcols in REPLICATE_LIST_CUMCOUNT:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)  
+    # get var        
+    apply_type = 'var'
+    for selcols in REPLICATE_LIST_VAR:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)          
+    # get mean              
+    apply_type = 'mean'
+    for selcols in REPLICATE_LIST_MEAN:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)  
+
 def main():
     train_df = read_train_test('is_merged')
     if debug: print(train_df.info())
-    # print('load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
-    # gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
-    #         usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], 
-    #         dtype=DATATYPE_LIST)
-    # train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-    # del gp; gc.collect()
-    # print_memory('after reading new cat')
-    # gp = pd.read_csv(TIME_FILENAME, 
-    #         usecols=['hour', 'day'],dtype=DATATYPE_LIST)
-    # train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-    # del gp; gc.collect()
-    # print_memory('after reading time')
-
-    # train_df = create_great_features(train_df)
+    print('reading time...')
+    gp = pd.read_csv(TIME_FILENAME, usecols=['hour', 'day'],dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading time')        
     # create_kernel_features(train_df)
 
     # create_kernel_click_anttip(train_df, 'prev')
-    create_kernel_click_anttip(train_df, 'next')
+    # create_kernel_click_anttip(train_df, 'next')
+    replicate_result(train_df)
     
     
     # create_kernel_confidence(train_df)
