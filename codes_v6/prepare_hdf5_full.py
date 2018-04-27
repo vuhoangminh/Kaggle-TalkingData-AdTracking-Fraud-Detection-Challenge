@@ -1,4 +1,4 @@
-debug=2
+debug=1
 print('debug', debug)
 
 if not debug:
@@ -9,6 +9,11 @@ else:
     print('=======================================================================')
     print('for testing only...')
     print('=======================================================================')
+
+if debug==1:
+    DATASET = 'day9'
+else:
+    DATASET = 'full'  
 
 import pandas as pd
 import h5py
@@ -67,9 +72,11 @@ DATATYPE_LIST = {
     'hour'              : 'uint8'
     }
 
-TRAIN_HDF5 = 'train_full.h5'
-TEST_HDF5 = 'test_full.h5'
+TRAIN_HDF5 = 'train_' + DATASET + '.h5'
+TEST_HDF5 = 'test_' + DATASET + '.h5'
 # TEST_HDF5 = 'test_day123.h5'
+      
+
 
 DATATYPE_LIST_STRING = {
     'mobile'            : 'category',
@@ -78,21 +85,24 @@ DATATYPE_LIST_STRING = {
     'app_channel'       : 'category',
     }
 
-if debug:
+if debug==1:
     PATH = '../debug_processed_day9/'        
 else:
     PATH = '../processed_full/'                
-CAT_COMBINATION_FILENAME = PATH + 'full_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'full_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + 'full_nextClick.csv'
-TIME_FILENAME = PATH + 'full_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + 'full_ip_hour_related.csv'
-TRAINSET_FILENAME = '../input/valid_day_9.csv'
+CAT_COMBINATION_FILENAME = PATH + DATASET + '_cat_combination.csv'
+CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + DATASET + '_cat_combination_numeric_category.csv'
+NEXTCLICK_FILENAME = PATH + DATASET + '_nextClick.csv'
+TIME_FILENAME = PATH + DATASET + '_day_hour_min.csv'
+IP_HOUR_RELATED_FILENAME = PATH + DATASET + '_ip_hour_related.csv'
+if debug==1:
+    TRAINSET_FILENAME = '../input/valid_day_9.csv'
+else:
+    TRAINSET_FILENAME = '../input/train.csv'        
 NCHUNKS = 100000
 if debug==1:
     NROWS=10000000
 else: 
-    NROWS =100    
+    NROWS =10000    
 # nrows=10
 
 if not debug:
@@ -104,8 +114,7 @@ else:
     print('for testing only...')
     print('=======================================================================')
 
-SIZE_TRAIN = 53016937
-# 184903890
+SIZE_TRAIN = 184903890
 SIZE_TEST = 18790469
 
 def print_memory(print_string=''):
@@ -195,7 +204,7 @@ def get_filename(selcols, apply_type):
         feature_name = feature_name + selcols[i] + '_'
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
     print('>> doing feature:', feature_name)
-    filename = PATH + 'full_' + feature_name + '.csv'
+    filename = PATH + DATASET + '_' + feature_name + '.csv'
     return filename, feature_name
 
 REMOVED_LIST = [
@@ -229,11 +238,11 @@ def update_datatype_dict():
     files = glob.glob(PATH + "*.csv") 
     print (files)
     if debug:
-        PATH_corrected = PATH.replace('full/', 'full\\') 
-        removed_string = PATH_corrected + 'full_'
+        PATH_corrected = PATH.replace(DATASET + '/', DATASET + '\\') 
+        removed_string = PATH_corrected + DATASET +'_'
     else:
         PATH_corrected = PATH
-        removed_string = PATH_corrected + 'full_'        
+        removed_string = PATH_corrected + DATASET + '_'        
     print(removed_string)
     for file in files:
         feature_name = file.replace(removed_string,'')
@@ -320,31 +329,31 @@ def do_same(save_name, train_df, which_dataset):
 
     print('-------------------------------------------------------------------')
     print('load full_cat_combination_numeric_category...')
-    filename = PATH + 'full_cat_combination_numeric_category.csv'
+    filename = PATH + DATASET + '_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()  
 
     print('-------------------------------------------------------------------')
     print('load full_cat_combination_numeric_category...')
-    filename = PATH + 'full_cat_combination_numeric_category.csv'
+    filename = PATH + DATASET + '_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()    
 
     print('-------------------------------------------------------------------')
     print('load full_day_hour_min...')
-    filename = PATH + 'full_day_hour_min.csv'
+    filename = PATH + DATASET + '_day_hour_min.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['day', 'hour', 'min'])
     print_memory()
 
-    print('-------------------------------------------------------------------')
-    print('load full_nextClick...')
-    filename = PATH + 'full_nextClick.csv'
-    prepare_dataset_hdf5(which_dataset, train_df, 
-            filename, usecols=['nextClick', 'nextClick_shift'])
-    print_memory()
+    # print('-------------------------------------------------------------------')
+    # print('load full_nextClick...')
+    # filename = PATH + 'full_nextClick.csv'
+    # prepare_dataset_hdf5(which_dataset, train_df, 
+    #         filename, usecols=['nextClick', 'nextClick_shift'])
+    # print_memory()
        
     for feature_name, type in DATATYPE_LIST_UPDATED.items():
         is_added = False
@@ -353,7 +362,7 @@ def do_same(save_name, train_df, which_dataset):
                 is_added = True
         if is_added:                
             print('-------------------------------------------------------------------')
-            filename = PATH + 'full_' + feature_name + '.csv'
+            filename = PATH + DATASET +'_' + feature_name + '.csv'
             print ('>> doing: {}, type {}, and save to {}'.format(feature_name, type, filename))
             print('merging...')
             prepare_dataset_hdf5(which_dataset, train_df, filename, 
@@ -369,7 +378,7 @@ def do_train():
     del test_df; gc.collect()
     print_memory()
     which_dataset = 'train'
-    save_name='train_full.h5'
+    save_name='train_' + DATASET + '.h5'
     add_dataset_to_hdf5(save_name, train_df, which_dataset)
     do_same(save_name, train_df, which_dataset)
     
@@ -382,7 +391,7 @@ def do_test():
     del train_df; gc.collect()
     print_memory()
     which_dataset = 'test'
-    save_name='test_full.h5'
+    save_name='test_' + DATASET + '.h5'
     add_dataset_to_hdf5(save_name, test_df, which_dataset)
     do_same(save_name, test_df, which_dataset)
     

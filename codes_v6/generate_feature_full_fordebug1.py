@@ -86,11 +86,11 @@ if debug==1:
     PATH = '../debug_processed_day9/'        
 else:
     PATH = '../processed_full/'                
-CAT_COMBINATION_FILENAME = PATH + 'full_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'full_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + 'full_nextClick.csv'
-TIME_FILENAME = PATH + 'full_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + 'full_ip_hour_related.csv'
+CAT_COMBINATION_FILENAME = PATH + 'day9_cat_combination.csv'
+CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'day9_cat_combination_numeric_category.csv'
+NEXTCLICK_FILENAME = PATH + 'day9_nextClick.csv'
+TIME_FILENAME = PATH + 'day9_day_hour_min.csv'
+IP_HOUR_RELATED_FILENAME = PATH + 'day9_ip_hour_related.csv'
 TRAINSET_FILENAME = '../input/train.csv'
 
 if debug==2:
@@ -232,7 +232,7 @@ def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):
         feature_name = feature_name + selcols[i] + '_'
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
     print('>> doing feature:', feature_name)
-    filename = PATH + 'full_' + feature_name + '.csv'
+    filename = PATH + 'day9_' + feature_name + '.csv'
     if debug: print_info(train_df)
     if os.path.exists(filename) and debug!=2:
         print ('done already...')
@@ -355,7 +355,7 @@ ATTRIBUTION_CATEGORIES = [
 def generate_confidence(train_df, cols):
     # Find frequency of is_attributed for each unique value in column
     feature_name = '_'.join(cols)+'_confRate'    
-    filename = PATH + 'full_' + feature_name + '.csv'
+    filename = PATH + 'day9_' + feature_name + '.csv'
     
     if os.path.exists(filename) and debug!=2:
         print  ('done already...', filename)
@@ -424,7 +424,7 @@ def generate_click_anttip(train_df, cols, which_click):
         feature_name = '_'.join(cols)+'_nextclick'   
     else:
         feature_name = '_'.join(cols)+'_prevclick'                  
-    filename = PATH + 'full_' + feature_name + '.csv'
+    filename = PATH + 'day9_' + feature_name + '.csv'
     print('-----------------------------------------------------')
     print('>> doing feature:', feature_name, 'save to', filename)
     if os.path.exists(filename) and debug!=2:
@@ -712,11 +712,11 @@ def update_datatype_dict():
     files = glob.glob(PATH + "*.csv") 
     print (files)
     if debug:
-        PATH_corrected = PATH.replace('full/', 'full\\') 
-        removed_string = PATH_corrected + 'full_'
+        PATH_corrected = PATH.replace('day9/', 'day9\\') 
+        removed_string = PATH_corrected + 'day9_'
     else:
         PATH_corrected = PATH
-        removed_string = PATH_corrected + 'full_'        
+        removed_string = PATH_corrected + 'day9_'        
     print(removed_string)
     for file in files:
         feature_name = file.replace(removed_string,'')
