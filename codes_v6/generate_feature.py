@@ -492,6 +492,7 @@ def create_cat_combination(df):
         del gp_app, gp_channel, gp_device, gp_os, gp; gc.collect()
         print_memory()
 
+
 def create_next_click(train_df):
     print('doing nextClick...')
     filename=NEXTCLICK_FILENAME

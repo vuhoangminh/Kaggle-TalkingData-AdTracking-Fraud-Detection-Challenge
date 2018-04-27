@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 import configs
 import math
+import glob
 
 process = psutil.Process(os.getpid())
 
@@ -53,56 +54,44 @@ DATATYPE_LIST = {
     'nextClick_shift'   : 'float64',
     'min'               : 'uint8',
     'day'               : 'uint8',
-    'hour'              : 'uint8',
-    'ip_mobile_day_count_hour'              : 'uint32',
-    'ip_mobileapp_day_count_hour'           : 'uint32',
-    'ip_mobilechannel_day_count_hour'       : 'uint32',
-    'ip_appchannel_day_count_hour'          : 'uint32',
-    'ip_mobile_app_channel_day_count_hour'  : 'uint32',
-    'ip_mobile_day_var_hour'                : 'float32',
-    'ip_mobileapp_day_var_hour'             : 'float32',
-    'ip_mobilechannel_day_var_hour'         : 'float32',
-    'ip_appchannel_day_var_hour'            : 'float32',
-    'ip_mobile_app_channel_day_var_hour'    : 'float32',
-    'ip_mobile_day_std_hour'                : 'float32',
-    'ip_mobileapp_day_std_hour'             : 'float32',
-    'ip_mobilechannel_day_std_hour'         : 'float32',
-    'ip_appchannel_day_std_hour'            : 'float32',
-    'ip_mobile_app_channel_day_std_hour'    : 'float32',
-    'ip_mobile_day_cumcount_hour'               : 'uint32',
-    'ip_mobileapp_day_cumcount_hour'            : 'uint32',
-    'ip_mobilechannel_day_cumcount_hour'        : 'uint32',
-    'ip_appchannel_day_cumcount_hour'           : 'uint32',
-    'ip_mobile_app_channel_day_cumcount_hour'   : 'uint32',
-    'ip_mobile_day_nunique_hour'                : 'uint32',
-    'ip_mobileapp_day_nunique_hour'             : 'uint32',
-    'ip_mobilechannel_day_nunique_hour'         : 'uint32',
-    'ip_appchannel_day_nunique_hour'            : 'uint32',
-    'ip_mobile_app_channel_day_nunique_hour'    : 'uint32',
-    'ip_mobile_app_channel_day_nunique_hour'    : 'uint32',
-    'ip_confRate'                               : 'float32',
-    'app_confRate'                              : 'float32',
-    'device_confRate'                           : 'float32',
-    'os_confRate'                               : 'float32',
-    'channel_confRate'                          : 'float32',
-    'ip_channel_confRate'                       : 'float32',
-    'ip_app_confRate'                           : 'float32',
-    'mobile_channel_confRate'                   : 'float32',
-    'mobile_app_confRate'                       : 'float32',
-    'channel_app_confRate'                      : 'float32',
+    'hour'              : 'uint8'
     }
 
+DATATYPE_LIST_STRING = {
+    'mobile'            : 'category',
+    'mobile_app'        : 'category',
+    'mobile_channel'    : 'category',
+    'app_channel'       : 'category',
+    }
 
-if debug:
+REMOVED_LIST = [
+    'cat_combination.csv',
+    'nextClick.csv',
+    'day_hour_min.csv',
+    'cat_combination_numeric_category.csv'
+    ]
+
+DATATYPE_DICT = {
+    'count'     : 'uint32',
+    'nunique'   : 'uint32',
+    'cumcount'  : 'uint32',
+    'var'       : 'float32',
+    'std'       : 'float32',
+    'confRate'  : 'float32',
+    'nextclick' : 'int64',
+    'mean'      : 'float32'
+    }
+
+if debug==1:
     PATH = '../debug_processed_day9/'        
 else:
-    PATH = '../processed_day9/'                
-CAT_COMBINATION_FILENAME = PATH + 'day9_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'day9_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + 'day9_nextClick.csv'
-TIME_FILENAME = PATH + 'day9_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + 'day9_ip_hour_related.csv'
-TRAINSET_FILENAME = '../input/valid_day_9.csv'
+    PATH = '../processed_full/'                
+CAT_COMBINATION_FILENAME = PATH + 'full_cat_combination.csv'
+CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'full_cat_combination_numeric_category.csv'
+NEXTCLICK_FILENAME = PATH + 'full_nextClick.csv'
+TIME_FILENAME = PATH + 'full_day_hour_min.csv'
+IP_HOUR_RELATED_FILENAME = PATH + 'full_ip_hour_related.csv'
+TRAINSET_FILENAME = '../input/train.csv'
 NCHUNKS = 100000
 
 nrows=10000000
@@ -117,43 +106,8 @@ else:
     print('for testing only...')
     print('=======================================================================')
 
-def convert_to_right_type():
-    usecols_train=['ip','app','device','os', 'channel', 'click_time', 'is_attributed']
-    usecols_test=['ip','app','device','os', 'channel', 'click_time', 'click_id']
-    print('loading train data...')
-    if debug:
-        train_df = pd.read_csv(TRAINSET_FILENAME, nrows=nrows, parse_dates=['click_time'], 
-                dtype=DATATYPE_LIST, usecols=usecols_train)
-    else:        
-        train_df = pd.read_csv(TRAINSET_FILENAME, 
-                dtype=DATATYPE_LIST, usecols=usecols_train)  
-    print(train_df.info())      
-    train_df.to_csv('valid_day_9.csv', index=False)  
-    del train_df; gc.collect
-    print('loading test data...')
-    if debug:
-        test_df = pd.read_csv("../input/test.csv", nrows=nrows, parse_dates=['click_time'], 
-                dtype=DATATYPE_LIST, usecols=usecols_test)
-    else:        
-        test_df = pd.read_csv("../input/test.csv", 
-                dtype=DATATYPE_LIST, usecols=usecols_test)  
-    print(test_df.info())    
-    test_df.to_csv('test.csv', index=False)                     
-
-def convert_categorical_to_number(train_df):
-    train_df['ip'] = pd.Categorical(train_df.ip).codes
-    train_df['app'] = pd.Categorical(train_df.app).codes
-    train_df['device'] = pd.Categorical(train_df.device).codes
-    train_df['os'] = pd.Categorical(train_df.os).codes
-    train_df['channel'] = pd.Categorical(train_df.channel).codes
-    train_df['mobile'] = pd.Categorical(train_df.mobile).codes
-    train_df['mobile_app'] = pd.Categorical(train_df.mobile_app).codes
-    train_df['mobile_channel'] = pd.Categorical(train_df.mobile_channel).codes
-    train_df['app_channel'] = pd.Categorical(train_df.app_channel).codes
-    return train_df
-
 def convert_to_save_memory(train_df):
-    for feature, type in DATATYPE_LIST.items(): 
+    for feature, type in DATATYPE_LIST_UPDATED.items(): 
         if feature in list(train_df):
             train_df[feature]=train_df[feature].astype(type)        
     return train_df
@@ -189,28 +143,28 @@ def read_train(usecols_train, filename):
     if debug==2:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST, parse_dates=['click_time'],
+                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST_UPDATED, parse_dates=['click_time'],
                 usecols=usecols_train)
         else:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST, 
+                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST_UPDATED, 
                 usecols=usecols_train)  
     if debug==1:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST, parse_dates=['click_time'],
+                skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST_UPDATED, parse_dates=['click_time'],
                 usecols=usecols_train)
         else:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST, 
+                skiprows=range(1,10), nrows=nrows, dtype=DATATYPE_LIST_UPDATED, 
                 usecols=usecols_train)                
     if debug==0:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, parse_dates=['click_time'],
-                dtype=DATATYPE_LIST, usecols=usecols_train)           
+                dtype=DATATYPE_LIST_UPDATED, usecols=usecols_train)           
         else:
             train_df = pd.read_csv(filename, 
-                dtype=DATATYPE_LIST, usecols=usecols_train)    
+                dtype=DATATYPE_LIST_UPDATED, usecols=usecols_train)    
     return train_df                     
 
 def read_train_test(style='is_merged', \
@@ -264,16 +218,22 @@ def describe_both_dataset():
     gp['day'] = pd.to_datetime(train_df.click_time).dt.day.astype('uint8')
     gp.to_csv(TIME_FILENAME,index=False)
 
+def print_info(train_df):
+    print(train_df.info()) 
+    print(train_df.head())
+
 def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):      
     feature_name = ''
     for i in range(len(selcols)-1):
         feature_name = feature_name + selcols[i] + '_'
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
     print('>> doing feature:', feature_name)
-    filename = PATH + 'day9_' + feature_name + '.csv'
+    filename = PATH + 'full_' + feature_name + '.csv'
+    if debug: print_info(train_df)
     if os.path.exists(filename) and debug!=2:
         print ('done already...')
     else:
+        if debug: print(selcols); print (len(selcols)-1)
         if apply_type == 'count':
             col_temp = train_df[selcols]. \
                 groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].count(). \
@@ -308,8 +268,8 @@ def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):
             del col_temp; gc.collect()
 
         col_extracted.to_csv(filename, index=False)
+        # if debug==2: print(train_df.head()); print(col_temp.head())
         del col_extracted; gc.collect()
-        if debug==2: print(train_df.head()); print(col_temp.head())
     return feature_name        
     # return train_df, feature_name               
 
@@ -391,7 +351,7 @@ ATTRIBUTION_CATEGORIES = [
 def generate_confidence(train_df, cols):
     # Find frequency of is_attributed for each unique value in column
     feature_name = '_'.join(cols)+'_confRate'    
-    filename = PATH + 'day9_' + feature_name + '.csv'
+    filename = PATH + 'full_' + feature_name + '.csv'
     
     if os.path.exists(filename) and debug!=2:
         print  ('done already...', filename)
@@ -459,7 +419,7 @@ def generate_click_anttip(train_df, cols, which_click):
         feature_name = '_'.join(cols)+'_nextclick'   
     else:
         feature_name = '_'.join(cols)+'_prevclick'                  
-    filename = PATH + 'day9_' + feature_name + '.csv'
+    filename = PATH + 'full_' + feature_name + '.csv'
     print('-----------------------------------------------------')
     print('>> doing feature:', feature_name, 'save to', filename)
     if os.path.exists(filename) and debug!=2:
@@ -509,10 +469,49 @@ def generate_click_anttip(train_df, cols, which_click):
         del col_extracted            
         print_memory()
 
-
 def create_kernel_click_anttip(train_df, which_click):
     for cols in GROUP_BY_NEXT_CLICKS:
         generate_click_anttip(train_df, cols, which_click)
+
+MINH_LIST_NUNIQUE =[
+    ['ip','mobile','day','hour'],
+    ['ip','mobile_app','day','hour'],
+    ['ip','mobile_channel','day','hour'],
+    ['ip','app_channel','day','hour'],
+    ['ip', 'mobile','app_channel','day','hour']
+]
+
+MINH_LIST_CUMCOUNT =[
+    ['ip','mobile','day','hour'],
+    ['ip','mobile_app','day','hour'],
+    ['ip','mobile_channel','day','hour'],
+    ['ip','app_channel','day','hour'],
+    ['ip', 'mobile','app_channel','day','hour']
+]
+
+MINH_LIST_STD =[
+    ['ip','mobile','day','hour'],
+    ['ip','mobile_app','day','hour'],
+    ['ip','mobile_channel','day','hour'],
+    ['ip','app_channel','day','hour'],
+    ['ip', 'mobile','app_channel','day','hour']
+]
+
+MINH_LIST_VAR =[
+    ['ip','mobile','day','hour'],
+    ['ip','mobile_app','day','hour'],
+    ['ip','mobile_channel','day','hour'],
+    ['ip','app_channel','day','hour'],
+    ['ip', 'mobile','app_channel','day','hour']
+]
+
+MINH_LIST_COUNT =[
+    ['ip','mobile','day','hour'],
+    ['ip','mobile_app','day','hour'],
+    ['ip','mobile_channel','day','hour'],
+    ['ip','app_channel','day','hour'],
+    ['ip', 'mobile','app_channel','day','hour']
+]
 
 REPLICATE_LIST_NUNIQUE = [
     ['ip', 'channel'],
@@ -582,25 +581,211 @@ def replicate_result(train_df):
         print_memory()
         new_feature_list.append(feature_name)  
 
+def create_day_hour_min(train_df):
+    print('>> Extracting new features...')
+    gp = pd.DataFrame()
+    gp['min'] = pd.to_datetime(train_df.click_time).dt.minute.astype('uint8')
+    gp['hour'] = pd.to_datetime(train_df.click_time).dt.hour.astype('uint8')
+    gp['day'] = pd.to_datetime(train_df.click_time).dt.day.astype('uint8')
+    gp.to_csv(TIME_FILENAME,index=False)
+
+def create_time_call(train_df):
+    print('>> create day hour min...') 
+    time_filename = TIME_FILENAME 
+    if os.path.exists(time_filename):
+        print('already created, load from', time_filename)
+    else:
+        create_day_hour_min(train_df)
+    if debug==2:        
+        gp = pd.read_csv(time_filename, dtype=DATATYPE_LIST_UPDATED)
+        train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+        del gp; gc.collect()  
+    print_memory('after get day-hour-min')
+
+def create_cat_combination(df):
+    range_split = range(0,len(df),NCHUNKS)
+    num_split = len(range(0,len(df),NCHUNKS))
+    print('process', num_split, 'splits...')
+    # gp_full = pd.DataFrame()
+    for i in range(num_split):
+        print('------------------------------------------')
+        print('process split', i)
+        if i+1<num_split:
+            train_df = df[range_split[i]:range_split[i+1]]
+            if debug==2: print(train_df)
+        else:
+            train_df = df[range_split[i]:]  
+            if debug==2: print(train_df)
+        gp = pd.DataFrame()  
+        print('convert to string...')                      
+        gp_device = train_df['device'].astype(str)
+        gp_os = train_df['os'].astype(str)
+        gp_app = train_df['app'].astype(str)
+        gp_channel = train_df['channel'].astype(str)
+        gp = pd.DataFrame()
+        print('doing mobile...')
+        gp['mobile'] = gp_device + '_' + gp_os
+        print('doing mobile_app...')
+        gp['mobile_app'] = gp_device + '_' + gp_os + '_' + gp_app
+        print('doing mobile_channel...')
+        gp['mobile_channel'] = gp_device + '_' + gp_os + '_' + gp_channel
+        print('doing app_channel...')
+        gp['app_channel'] = gp_app + '_' + gp_channel
+        print('save cat combination...')
+        if i==0:
+            gp.to_csv(CAT_COMBINATION_FILENAME,index=False)
+        else:
+            print('concat cat combination...')
+            with open(CAT_COMBINATION_FILENAME, 'a') as f:
+                gp.to_csv(f, header=False, index=False)
+        
+        del gp_app, gp_channel, gp_device, gp_os, gp; gc.collect()
+        print_memory()
+
+def create_cat_combination_call(train_df):
+    print('>> create cat combination...')
+    cat_combination_filename = CAT_COMBINATION_FILENAME
+    if os.path.exists(cat_combination_filename):
+        print('already created, load from', cat_combination_filename)
+    else: 
+        create_cat_combination(train_df)
+    if debug==2:        
+        gp = pd.read_csv(cat_combination_filename, dtype=DATATYPE_LIST_STRING)
+        train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+        del gp; gc.collect()
+    print_memory('after get cat combination')
+
+def generate_minh_features(train_df):
+    new_feature_list=[]
+    # get nunique
+    apply_type = 'nunique'
+    for selcols in MINH_LIST_NUNIQUE:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)
+    # get nunique
+    apply_type = 'cumcount'
+    for selcols in MINH_LIST_CUMCOUNT:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)  
+    # get var        
+    apply_type = 'var'
+    for selcols in MINH_LIST_VAR:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)          
+    # get count
+    apply_type = 'count'
+    for selcols in MINH_LIST_COUNT:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)  
+    # get count
+    apply_type = 'std'
+    for selcols in MINH_LIST_STD:
+        feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
+        print_memory()
+        new_feature_list.append(feature_name)  
+
+def create_cat_combination_to_number_call(train_df):
+    print('>> convert cat combination to number...') 
+    gc.collect()
+    if not os.path.exists(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME):
+        convert_cat_combination_to_number()
+    print('create ip-hour related features...') 
+    if os.path.exists(IP_HOUR_RELATED_FILENAME):
+        print('already created ip-hour')
+    else:
+        if os.path.exists(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME):
+            print('load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
+            gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
+                    usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], dtype=DATATYPE_LIST)
+            train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+            del gp; gc.collect()
+            print_memory('after reading new cat')
+            gp = pd.read_csv(TIME_FILENAME, 
+                    usecols=['hour', 'day'],dtype=DATATYPE_LIST_UPDATED)
+            train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+            del gp; gc.collect()
+            print_memory('after reading time')
+        else: 
+            print('please check, there is no file name', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
+    print_memory('after get ip related features')
+
+def get_datatype(feature_name):
+    datatype = 'UNKNOWN'
+    for key, type in DATATYPE_DICT.items():
+        if key in feature_name:
+            datatype = type
+            break
+    return datatype           
+
+def update_datatype_dict():
+    datatype_list = DATATYPE_LIST
+    files = glob.glob(PATH + "*.csv") 
+    print (files)
+    if debug:
+        PATH_corrected = PATH.replace('full/', 'full\\') 
+        removed_string = PATH_corrected + 'full_'
+    else:
+        PATH_corrected = PATH
+        removed_string = PATH_corrected + 'full_'        
+    print(removed_string)
+    for file in files:
+        feature_name = file.replace(removed_string,'')
+        if feature_name not in REMOVED_LIST:
+            feature_name = feature_name.split('.')[0]
+            feature_type = get_datatype(feature_name)
+            # print('feature {} has datatype {}'.format(feature_name, feature_type))
+            datatype_list[feature_name] = feature_type
+    return datatype_list
+
+# DATATYPE_LIST_UPDATED = update_datatype_dict()
+DATATYPE_LIST_UPDATED = DATATYPE_LIST
+
+def extend_df_with_time_cat(train_df):
+    print('>> load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
+    gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
+            usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading new cat')
+    gp = pd.read_csv(TIME_FILENAME, 
+            usecols=['hour', 'day'],dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading time')
+
+    if debug: print(train_df.info())
+    return train_df
 
 def main():
     train_df = read_train_test('is_merged')
     if debug: print(train_df.info())
-    print('reading time...')
-    gp = pd.read_csv(TIME_FILENAME, usecols=['hour', 'day'],dtype=DATATYPE_LIST)
-    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-    del gp; gc.collect()
-    print_memory('after reading time')        
-    # create_kernel_features(train_df)
-
-    # create_kernel_click_anttip(train_df, 'prev')
-    # create_kernel_click_anttip(train_df, 'next')
+    print('>> reading time...')    
+    print('------------------------------------------------------') 
+    create_day_hour_min(train_df)
+    print('------------------------------------------------------')
+    create_cat_combination_call(train_df)
+    print('------------------------------------------------------')
+    create_cat_combination_to_number_call(train_df)
+    print('------------------------------------------------------')
+    print('>> extend df with time and new cat...')
+    train_df = extend_df_with_time_cat(train_df)
+    print('------------------------------------------------------')
+    print('>> create kernel features...')
+    create_kernel_features(train_df)
+    print('------------------------------------------------------')
+    print('>> create kernel confidence...')
+    create_kernel_confidence(train_df)
+    print('------------------------------------------------------')
+    print('>> create replicate result...')
     replicate_result(train_df)
-    
-    
-    # create_kernel_confidence(train_df)
-
-    if debug: print(train_df.info())
-    print_memory('after create great features')       
-
+    print('------------------------------------------------------')
+    print('>> create generate minh features...')
+    generate_minh_features(train_df)    
+    print('------------------------------------------------------')
+    print('>> create kernel click anttip...')
+    create_kernel_click_anttip(train_df, 'next')
 main()
