@@ -1,4 +1,4 @@
-debug=1
+debug=0
 print('debug', debug)
 
 if not debug:

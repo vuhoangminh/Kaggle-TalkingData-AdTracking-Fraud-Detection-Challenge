@@ -1,4 +1,14 @@
-debug=1
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+import seaborn as sns
+from sklearn.feature_selection import RFE, f_regression
+from sklearn.linear_model import (LinearRegression, Ridge, Lasso, RandomizedLasso)
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import RandomForestRegressor
+
+
+debug=0
 print('debug', debug)
   
 
@@ -31,7 +41,7 @@ if debug==1:
     end_point = 5000
 if debug==0:
     start_point = 0 
-    end_point = 1000
+    end_point = 100000
 
 
 import pandas as pd
@@ -217,33 +227,166 @@ print(train_df.info())
 print(train_df.head())
 
 print('>> prepare dataset...')
+
+
+# # 1. DATA CLEANSING AND ANALYSIS
+# 
+# Let's first read in the house data as a dataframe "house" and inspect the first 5 rows
+
+# In[ ]:
+
+
+
+
+house = train_df
+
+
+
+
+
+# **Pairplot Visualisation**
+# 
+# Let's create some Seaborn pairplots for the features ('sqft_lot','sqft_above','price','sqft_living','bedrooms') to get a feel for how the various features are distributed vis-a-vis the price as well as the number of bedrooms
+
+# In[ ]:
+
+
+#sns.pairplot(house[['sqft_lot','sqft_above','price','sqft_living','bedrooms']], hue='bedrooms', palette='afmhot',size=1.4)
+
+
+
+# # 2. Stability Selection via Randomized Lasso
+# First extract the target variable which is our House prices
 y = train_df['is_attributed']
-X = train_df.loc[:, train_df.columns != 'is_attributed']
+Y = y
+
+
+x = train_df.loc[:, train_df.columns != 'is_attributed']
+
+# Drop price from the house dataframe and create a matrix out of the house data
+
+X = x
+# Store the column/feature names into a list "colnames"
+colnames = house.columns
 print_memory()
+# Next, we create a function which will be able to conveniently store our feature rankings obtained from the various methods described here into a Python dictionary. In case you are thinking I created this function, no this is not the case. All credit goes to Ando Saabas and I am only trying to apply what he has discussed in the context of this dataset.
 
-# t = time.time()
-# do stuff
-print('>> fit on {} samples and {} features...'.format(len(X), len(list(X))))
-estimator = SVR(kernel="linear") 
-print('done estimator')
-selector = RFE(estimator, 20, step=1, verbose=1)
-print('done selector')
-selector = selector.fit(X, y)
-print_memory()
-# elapsed = time.time() - t
-# print('processing time:', elapsed)
+# In[ ]:
 
 
-# i=0
+# Define dictionary to store our rankings
+ranks = {}
+# Create our function which stores the feature rankings to the ranks dictionary
+def ranking(ranks, names, order=1):
+    minmax = MinMaxScaler()
+    ranks = minmax.fit_transform(order*np.array([ranks]).T).T[0]
+    ranks = map(lambda x: round(x,2), ranks)
+    return dict(zip(names, ranks))
 
-print('========================================================================')
-print('SUMMARY')
-print('========================================================================')
-print_memory()
-features = list(X)
-print(len(features), len(selector.ranking_))
-print('feature selected:')
-for i in range(len(features)):
-    feature = features[i]
-    if selector.support_[i]:
-        print(feature, selector.ranking_[i])
+
+# In[ ]:
+
+
+# Finally let's run our Selection Stability method with Randomized Lasso
+rlasso = RandomizedLasso(alpha=0.04)
+rlasso.fit(X, Y)
+ranks["rlasso/Stability"] = ranking(np.abs(rlasso.scores_), colnames)
+print('finished')
+
+
+
+
+
+
+
+# # 3. Recursive Feature Elimination ( RFE )
+
+# Construct our Linear Regression model
+lr = LinearRegression(normalize=True)
+lr.fit(X,Y)
+#stop the search when only the last feature is left
+rfe = RFE(lr, n_features_to_select=20, verbose =3)
+rfe.fit(X,Y)
+ranks["RFE"] = ranking(list(map(float, rfe.ranking_)), colnames, order=-1)
+
+
+# # # 4. Linear Model Feature Ranking
+# # 
+# # Now let's apply 3 different linear models (Linear, Lasso and Ridge Regression) and how the features are selected and prioritised via these models. To achieve this, I shall use the sklearn implementation of these models and in particular the attribute .coef to return the estimated coefficients for each feature in the linear model.
+
+# # In[ ]:
+
+
+# # Using Linear Regression
+# lr = LinearRegression(normalize=True)
+# lr.fit(X,Y)
+# ranks["LinReg"] = ranking(np.abs(lr.coef_), colnames)
+
+# # Using Ridge 
+# ridge = Ridge(alpha = 7)
+# ridge.fit(X,Y)
+# ranks['Ridge'] = ranking(np.abs(ridge.coef_), colnames)
+
+# # Using Lasso
+# lasso = Lasso(alpha=.05)
+# lasso.fit(X, Y)
+# ranks["Lasso"] = ranking(np.abs(lasso.coef_), colnames)
+
+
+# # # 5. Random Forest feature ranking
+# # 
+# # Sklearn's Random Forest model also comes with it's own inbuilt feature ranking attribute and one can conveniently just call it via "feature_importances_". That is what we will be using as follows:
+
+# # In[ ]:
+
+
+# rf = RandomForestRegressor(n_jobs=-1, n_estimators=50, verbose=3)
+# rf.fit(X,Y)
+# ranks["RF"] = ranking(rf.feature_importances_, colnames);
+
+
+# # # 6. Creating the Feature Ranking Matrix
+# # 
+# # We combine the scores from the various methods above and output it in a matrix form for convenient viewing as such:
+
+# # In[ ]:
+
+
+# # Create empty dictionary to store the mean value calculated from all the scores
+# r = {}
+# for name in colnames:
+#     r[name] = round(np.mean([ranks[method][name] 
+#                              for method in ranks.keys()]), 2)
+ 
+# methods = sorted(ranks.keys())
+# ranks["Mean"] = r
+# methods.append("Mean")
+ 
+# print("\t%s" % "\t".join(methods))
+# for name in colnames:
+#     print("%s\t%s" % (name, "\t".join(map(str, 
+#                          [ranks[method][name] for method in methods]))))
+
+
+# # Now, with the matrix above, the numbers and layout does not seem very easy or pleasant to the eye. Therefore, let's just collate the mean ranking score attributed to each of the feature and plot that via Seaborn's factorplot.
+
+# # In[ ]:
+
+
+# # Put the mean scores into a Pandas dataframe
+# meanplot = pd.DataFrame(list(r.items()), columns= ['Feature','Mean Ranking'])
+
+# # Sort the dataframe
+# meanplot = meanplot.sort_values('Mean Ranking', ascending=False)
+
+
+# # In[ ]:
+
+
+# # Let's plot the ranking of the features
+# sns.factorplot(x="Mean Ranking", y="Feature", data = meanplot, kind="bar", 
+#                size=14, aspect=1.9, palette='coolwarm')
+
+
+# # Well as you can see from our feature ranking endeavours, the top 3 features are 'lat', 'waterfront' and 'grade'. The bottom 3 are 'sqft_lot15', 'sqft_lot' and 'sqft_basement'. 
+# # This sort of feature ranking can be really useful, especially if one has many many features in the dataset and would like to trim or cut off features that contribute negligibly.
