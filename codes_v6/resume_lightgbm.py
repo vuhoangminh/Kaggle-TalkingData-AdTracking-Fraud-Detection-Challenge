@@ -92,22 +92,24 @@ PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
     'app_nunique_channel',
     'ip_cumcount_os',
     'ip_device_os_nunique_app',
-    'nextClick',
+    'ip_os_device_app_nextclick',
     'ip_day_hour_count_channel',
     'ip_app_count_channel',
     'ip_app_os_count_channel',
+
     # 'app_confRate',
     # 'device_confRate',
     # 'ip_confRate',
+    # 'mobile_app_confRate',
+
     'ip_app_channel_day_count_hour',
     'ip_app_channel_day_nunique_hour',
     'ip_app_channel_day_var_hour',
+    
     'ip_app_nextclick',
     'ip_channel_nextclick',  
     'ip_device_os_nextclick',   
-    'ip_os_device_app_nextclick',
-    'ip_os_device_channel_app_nextclick',
-    # 'mobile_app_confRate'
+    'ip_os_device_channel_app_nextclick', 
     ]     
 
 

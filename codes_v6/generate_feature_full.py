@@ -92,7 +92,11 @@ NEXTCLICK_FILENAME = PATH + 'full_nextClick.csv'
 TIME_FILENAME = PATH + 'full_day_hour_min.csv'
 IP_HOUR_RELATED_FILENAME = PATH + 'full_ip_hour_related.csv'
 TRAINSET_FILENAME = '../input/train.csv'
-NCHUNKS = 100000
+
+if debug==2:
+    NCHUNKS = 3
+else:    
+    NCHUNKS = 100000
 
 nrows=10000000
 # nrows=10
@@ -143,11 +147,11 @@ def read_train(usecols_train, filename):
     if debug==2:
         if 'click_time' in usecols_train:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST_UPDATED, parse_dates=['click_time'],
+                nrows=10000, dtype=DATATYPE_LIST_UPDATED, parse_dates=['click_time'],
                 usecols=usecols_train)
         else:
             train_df = pd.read_csv(filename, 
-                skiprows=range(1,10), nrows=100, dtype=DATATYPE_LIST_UPDATED, 
+                nrows=10000, dtype=DATATYPE_LIST_UPDATED, 
                 usecols=usecols_train)  
     if debug==1:
         if 'click_time' in usecols_train:
@@ -361,7 +365,7 @@ def generate_confidence(train_df, cols):
         
         # Group sizes    
         group_sizes = group_object.size()
-        log_group = np.log(100000) # 1000 views -> 60% confidence, 100 views -> 40% confidence 
+        log_group = np.log(200000000) # 10000000 views -> 60% confidence, 100 views -> 40% confidence 
         print(">> Calculating confidence-weighted rate for: {}.\n   Saving to: {}. Group Max /Mean / Median / Min: {} / {} / {} / {}".format(
             cols, filename, 
             group_sizes.max(), 
@@ -374,8 +378,8 @@ def generate_confidence(train_df, cols):
         def rate_calculation(x):
             """Calculate the attributed rate. Scale by confidence"""
             rate = x.sum() / float(x.count())
-            conf = np.min([1, np.log(x.count()) / log_group])
-            return rate * conf
+            conf = np.min([1, np.log(x.count()) / log_group]) 
+            return np.rint(rate * conf * 2**32)
         
         # Perform the save
         col_extracted = pd.DataFrame()     
@@ -693,25 +697,6 @@ def create_cat_combination_to_number_call(train_df):
     gc.collect()
     if not os.path.exists(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME):
         convert_cat_combination_to_number()
-    print('create ip-hour related features...') 
-    if os.path.exists(IP_HOUR_RELATED_FILENAME):
-        print('already created ip-hour')
-    else:
-        if os.path.exists(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME):
-            print('load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
-            gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
-                    usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], dtype=DATATYPE_LIST)
-            train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-            del gp; gc.collect()
-            print_memory('after reading new cat')
-            gp = pd.read_csv(TIME_FILENAME, 
-                    usecols=['hour', 'day'],dtype=DATATYPE_LIST_UPDATED)
-            train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
-            del gp; gc.collect()
-            print_memory('after reading time')
-        else: 
-            print('please check, there is no file name', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
-    print_memory('after get ip related features')
 
 def get_datatype(feature_name):
     datatype = 'UNKNOWN'
@@ -760,16 +745,31 @@ def extend_df_with_time_cat(train_df):
     if debug: print(train_df.info())
     return train_df
 
+def extend_df_with_cat(train_df):
+    print('>> load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
+    gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
+            usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'], dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading new cat')
+    gp = pd.read_csv(TIME_FILENAME, 
+            usecols=['hour', 'day'],dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading time')
+    if debug: print(train_df.info())
+    return train_df
+
 def main():
     train_df = read_train_test('is_merged')
     if debug: print(train_df.info())
     print('>> reading time...')    
     print('------------------------------------------------------') 
-    create_day_hour_min(train_df)
+    # create_day_hour_min(train_df)
     print('------------------------------------------------------')
-    create_cat_combination_call(train_df)
+    # create_cat_combination_call(train_df)
     print('------------------------------------------------------')
-    create_cat_combination_to_number_call(train_df)
+    # create_cat_combination_to_number_call(train_df)
     print('------------------------------------------------------')
     print('>> extend df with time and new cat...')
     train_df = extend_df_with_time_cat(train_df)

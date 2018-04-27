@@ -1,4 +1,4 @@
-debug=0
+debug=2
 print('debug', debug)
 
 if not debug:
@@ -67,8 +67,8 @@ DATATYPE_LIST = {
     'hour'              : 'uint8'
     }
 
-TRAIN_HDF5 = 'train_day9.h5'
-TEST_HDF5 = 'test_day9.h5'
+TRAIN_HDF5 = 'train_full.h5'
+TEST_HDF5 = 'test_full.h5'
 # TEST_HDF5 = 'test_day123.h5'
 
 DATATYPE_LIST_STRING = {
@@ -81,12 +81,12 @@ DATATYPE_LIST_STRING = {
 if debug:
     PATH = '../debug_processed_day9/'        
 else:
-    PATH = '../processed_day9/'                
-CAT_COMBINATION_FILENAME = PATH + 'day9_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'day9_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + 'day9_nextClick.csv'
-TIME_FILENAME = PATH + 'day9_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + 'day9_ip_hour_related.csv'
+    PATH = '../processed_full/'                
+CAT_COMBINATION_FILENAME = PATH + 'full_cat_combination.csv'
+CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + 'full_cat_combination_numeric_category.csv'
+NEXTCLICK_FILENAME = PATH + 'full_nextClick.csv'
+TIME_FILENAME = PATH + 'full_day_hour_min.csv'
+IP_HOUR_RELATED_FILENAME = PATH + 'full_ip_hour_related.csv'
 TRAINSET_FILENAME = '../input/valid_day_9.csv'
 NCHUNKS = 100000
 if debug==1:
@@ -195,7 +195,7 @@ def get_filename(selcols, apply_type):
         feature_name = feature_name + selcols[i] + '_'
     feature_name = feature_name + apply_type + '_' + selcols[len(selcols)-1]
     print('>> doing feature:', feature_name)
-    filename = PATH + 'day9_' + feature_name + '.csv'
+    filename = PATH + 'full_' + feature_name + '.csv'
     return filename, feature_name
 
 REMOVED_LIST = [
@@ -211,7 +211,7 @@ DATATYPE_DICT = {
     'cumcount'  : 'uint32',
     'var'       : 'float32',
     'std'       : 'float32',
-    'confRate'  : 'float32',
+    'confRate'  : 'uint32',
     'nextclick' : 'int64',
     'mean'      : 'float32'
     }
@@ -229,11 +229,11 @@ def update_datatype_dict():
     files = glob.glob(PATH + "*.csv") 
     print (files)
     if debug:
-        PATH_corrected = PATH.replace('day9/', 'day9\\') 
-        removed_string = PATH_corrected + 'day9_'
+        PATH_corrected = PATH.replace('full/', 'full\\') 
+        removed_string = PATH_corrected + 'full_'
     else:
         PATH_corrected = PATH
-        removed_string = PATH_corrected + 'day9_'        
+        removed_string = PATH_corrected + 'full_'        
     print(removed_string)
     for file in files:
         feature_name = file.replace(removed_string,'')
@@ -319,29 +319,29 @@ def do_same(save_name, train_df, which_dataset):
     print(train_df.info())
 
     print('-------------------------------------------------------------------')
-    print('load day9_cat_combination_numeric_category...')
-    filename = PATH + 'day9_cat_combination_numeric_category.csv'
+    print('load full_cat_combination_numeric_category...')
+    filename = PATH + 'full_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()  
 
     print('-------------------------------------------------------------------')
-    print('load day9_cat_combination_numeric_category...')
-    filename = PATH + 'day9_cat_combination_numeric_category.csv'
+    print('load full_cat_combination_numeric_category...')
+    filename = PATH + 'full_cat_combination_numeric_category.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()    
 
     print('-------------------------------------------------------------------')
-    print('load day9_day_hour_min...')
-    filename = PATH + 'day9_day_hour_min.csv'
+    print('load full_day_hour_min...')
+    filename = PATH + 'full_day_hour_min.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['day', 'hour', 'min'])
     print_memory()
 
     print('-------------------------------------------------------------------')
-    print('load day9_nextClick...')
-    filename = PATH + 'day9_nextClick.csv'
+    print('load full_nextClick...')
+    filename = PATH + 'full_nextClick.csv'
     prepare_dataset_hdf5(which_dataset, train_df, 
             filename, usecols=['nextClick', 'nextClick_shift'])
     print_memory()
@@ -353,7 +353,7 @@ def do_same(save_name, train_df, which_dataset):
                 is_added = True
         if is_added:                
             print('-------------------------------------------------------------------')
-            filename = PATH + 'day9_' + feature_name + '.csv'
+            filename = PATH + 'full_' + feature_name + '.csv'
             print ('>> doing: {}, type {}, and save to {}'.format(feature_name, type, filename))
             print('merging...')
             prepare_dataset_hdf5(which_dataset, train_df, filename, 
@@ -369,7 +369,7 @@ def do_train():
     del test_df; gc.collect()
     print_memory()
     which_dataset = 'train'
-    save_name='train_day9.h5'
+    save_name='train_full.h5'
     add_dataset_to_hdf5(save_name, train_df, which_dataset)
     do_same(save_name, train_df, which_dataset)
     
@@ -382,7 +382,7 @@ def do_test():
     del train_df; gc.collect()
     print_memory()
     which_dataset = 'test'
-    save_name='test_day9.h5'
+    save_name='test_full.h5'
     add_dataset_to_hdf5(save_name, test_df, which_dataset)
     do_same(save_name, test_df, which_dataset)
     
