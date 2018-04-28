@@ -59,7 +59,7 @@ if debug==1:
     END_POINT = 1000
 if debug==0:
     START_POINT = 0 
-    END_POINT = 100000000
+    END_POINT = 20000000
 
 
 import pandas as pd
@@ -125,6 +125,10 @@ DATATYPE_LIST = {
 
 TRAIN_HDF5 = 'train_' + DATASET + '.h5'
 TEST_HDF5 = 'test_' + DATASET + '.h5'
+if debug == 0:
+    TRAIN_HDF5 = 'converted_' + TRAIN_HDF5
+    TEST_HDF5 = 'converted_' + TEST_HDF5
+
 
 DATATYPE_LIST_STRING = {
     'mobile'            : 'category',
@@ -132,20 +136,7 @@ DATATYPE_LIST_STRING = {
     'mobile_channel'    : 'category',
     'app_channel'       : 'category',
     }
-
-if debug==1:
-    PATH = '../debug_processed_day9/'        
-else:
-    PATH = '../processed_full/'                
-CAT_COMBINATION_FILENAME = PATH + DATASET + '_cat_combination.csv'
-CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME = PATH + DATASET + '_cat_combination_numeric_category.csv'
-NEXTCLICK_FILENAME = PATH + DATASET + '_nextClick.csv'
-TIME_FILENAME = PATH + DATASET + '_day_hour_min.csv'
-IP_HOUR_RELATED_FILENAME = PATH + DATASET + '_ip_hour_related.csv'
-if debug==1:
-    TRAINSET_FILENAME = '../input/valid_day_9.csv'
-else:
-    TRAINSET_FILENAME = '../input/train.csv'        
+      
 
 if not debug:
     print('=======================================================================')
@@ -156,29 +147,12 @@ else:
     print('for testing only...')
     print('=======================================================================')
 
-SIZE_TRAIN = 53016937
-SIZE_TEST = 18790469
-
 def print_memory(print_string=''):
     print('Total memory in use ' + print_string + ': ', process.memory_info().rss/(2**30), ' GB')
 
 def get_keys_h5(f):
     return [key for key in f.keys()]
 
-# DATATYPE_DICT = {
-#     'count',     
-#     'nunique',   
-#     'cumcount',  
-#     'var'      ,
-#     'std'       ,
-#     'confRate' ,
-#     'nextclick' ,
-#     'nextClick',
-#     'nextClick_shift'
-#     }
-
-DATATYPE_DICT = {
-    }
 
 def is_processed(feature):
     is_processed = True
@@ -187,11 +161,7 @@ def is_processed(feature):
             is_processed = False
     return is_processed            
 
-DATATYPE_DICT_CONVERT = [
-    'count',
-    'nunique',
-    'cumcount'
-]
+
 def read_processed_h5(start_point, end_point, filename):
     with h5py.File(filename,'r') as hf:
         feature_list = list(hf.keys())
@@ -201,25 +171,7 @@ def read_processed_h5(start_point, end_point, filename):
         if feature!='dump_later' and not is_processed(feature) or feature=='is_attributed' :
         # if feature!='dump_later':
             print('>> adding', feature)
-            is_convert = False
-            for key in DATATYPE_DICT_CONVERT:
-                if key in feature:
-                    is_convert = True
-                    print('need to convert', feature, 'to int to save memory')
-            if is_convert:
-                df_temp = pd.DataFrame()
-                df_temp[feature] = pd.read_hdf(filename, key=feature,
-                        start=start_point, stop=end_point)
-                print('min anc max before:', df_temp[feature].min(), df_temp[feature].max())                        
-                df_temp = df_temp.fillna(0)
-                df_temp[feature] = df_temp[feature].astype('uint32')                        
-                if debug: print(df_temp.dtypes); print(df_temp.describe())
-                print('min anc max before:', df_temp[feature].min(), df_temp[feature].max())
-                if debug: print(df_temp.dtypes); print(df_temp.describe())
-                train_df[feature] = df_temp[feature]   
-                del df_temp; gc.collect
-            else:
-                train_df[feature] = pd.read_hdf(filename, key=feature,
+            train_df[feature] = pd.read_hdf(filename, key=feature,
                         start=start_point, stop=end_point)   
             print_memory()
     t1 = time.time()
@@ -298,7 +250,7 @@ def ranking(ranks, names, order=1):
 
 print('>> run rlasso/Stability')
 # Finally let's run our Selection Stability method with Randomized Lasso
-rlasso = RandomizedLasso(alpha=0.04)
+rlasso = RandomizedLasso(alpha=0.04, verbose=3)
 rlasso.fit(X, Y)
 ranks["rlasso/Stability"] = ranking(np.abs(rlasso.scores_), colnames)
 print('finished')
@@ -380,7 +332,7 @@ for name in colnames:
 
 df = pd.DataFrame(ranks)
 # print (df)
-df.to_csv('rank_10000000_new.csv')
+df.to_csv('rank_' + str(END_POINT) + '_new.csv')
 
 # Put the mean scores into a Pandas dataframe
 meanplot = pd.DataFrame(list(r.items()), columns= ['Feature','Mean Ranking'])
@@ -394,6 +346,6 @@ sns.factorplot(x="Mean Ranking", y="Feature", data = meanplot, kind="bar",
 
 fig=plt.gcf()
 fig.set_size_inches(50,50)
-savename = yearmonthdate_string + '_' + '_feature_ranking_10000000_new.png'
+savename = yearmonthdate_string + '_' + '_feature_ranking_' + str(END_POINT) + '_new.png'
 plt.savefig(savename)
 print('done')

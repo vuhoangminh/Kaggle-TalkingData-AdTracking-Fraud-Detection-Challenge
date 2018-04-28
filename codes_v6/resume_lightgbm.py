@@ -1,4 +1,9 @@
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
+
 debug=0
+frac=1
 print('debug', debug)
 
 
@@ -33,13 +38,21 @@ boosting_type = 'gbdt'
 # boosting_type = 'dart'
 
 
-frac = 1
+
 frm = 1; to = 100
 
 TARGET = ['is_attributed']
 
-TRAIN_HDF5 = 'train_full.h5'
-TEST_HDF5 = 'test_full.h5'
+if debug==1:
+    DATASET = 'day9'
+else:    
+    DATASET = 'full'
+
+TRAIN_HDF5 = 'train_' + DATASET + '.h5'
+TEST_HDF5 = 'test_' + DATASET + '.h5'
+if debug == 0:
+    TRAIN_HDF5 = 'converted_' + TRAIN_HDF5
+    TEST_HDF5 = 'converted_' + TEST_HDF5
 
 
 # OPTION 1 - OVERFITTING
@@ -83,19 +96,19 @@ TEST_HDF5 = 'test_full.h5'
 
 # OPTION 3 - PREVIOUS RESULT
 PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-    # 'ip_nunique_channel',
-    # 'ip_device_os_cumcount_app',
-    # 'ip_day_nunique_hour',
-    # 'ip_nunique_app',
-    # 'ip_app_nunique_os',
-    # 'ip_nunique_device',
-    # 'app_nunique_channel',
-    # 'ip_cumcount_os',
-    # 'ip_device_os_nunique_app',
+    'ip_nunique_channel',
+    'ip_device_os_cumcount_app',
+    'ip_day_nunique_hour',
+    'ip_nunique_app',
+    'ip_app_nunique_os',
+    'ip_nunique_device',
+    'app_nunique_channel',
+    'ip_cumcount_os',
+    'ip_device_os_nunique_app',
     'ip_os_device_app_nextclick',
-    # 'ip_day_hour_count_channel',
-    # 'ip_app_count_channel',
-    # 'ip_app_os_count_channel',
+    'ip_day_hour_count_channel',
+    'ip_app_count_channel',
+    'ip_app_os_count_channel',
 
     # 'app_confRate',
     # 'device_confRate',
@@ -106,10 +119,10 @@ PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
     # 'ip_app_channel_day_nunique_hour',
     # 'ip_app_channel_day_var_hour',
     
-    'ip_app_nextclick',
-    'ip_channel_nextclick',  
-    'ip_device_os_nextclick',   
-    'ip_os_device_channel_app_nextclick', 
+    # 'ip_app_nextclick',
+    # 'ip_channel_nextclick',  
+    # 'ip_device_os_nextclick',   
+    # 'ip_os_device_channel_app_nextclick', 
     ]     
 
 
@@ -273,8 +286,8 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 
     train_df = train_df.sample(frac=frac, random_state = SEED)
     print_memory('afer reading train')
-    train_df = drop_features(train_df)
-    print_memory('afer drop unused features')
+    # train_df = drop_features(train_df)
+    # print_memory('afer drop unused features')
     train_df, val_df = train_test_split(train_df, test_size=0.33, random_state=SEED)
     print_memory('afer split')
     print("train size: ", len(train_df))
@@ -288,11 +301,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) 
+
     print('submission file name:', subfilename)
     print('model file name:', modelfilename)
     print('fraction:', frac)
 
-    print("Training...")
     start_time = time.time()
 
     params = {
@@ -312,17 +325,19 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     }
     print (params)
 
-    print('cleaning train...')
+    print('>> cleaning train...')
     train_df_array = train_df[predictors].values
     train_df_labels = train_df[target].values.astype('int').flatten()
     del train_df; gc.collect()
     print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
-    print('cleaning val...')
+    print('>> cleaning val...')
     val_df_array = val_df[predictors].values
     val_df_labels = val_df[target].values.astype('int').flatten()
     del val_df; gc.collect()
     print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
 
+    print('--------------------------------------------------------------------') 
+    print(">> Training...")
     (bst,best_iteration) = lgb_modelfit_nocv(params, 
                             train_df_array, 
                             train_df_labels,
@@ -337,24 +352,38 @@ def DO(frm,to,fileno,num_leaves,max_depth):
                             num_boost_round=1000, 
                             categorical_features=categorical)
 
+    print('--------------------------------------------------------------------')                            
+    print('Feature importances:', list(bst.feature_importance()))              
+
     print('[{}]: model training time'.format(time.time() - start_time))
     del train_df_array, train_df_labels, val_df_array, val_df_labels
     gc.collect()
 
-    print('Save model...')
+    print('--------------------------------------------------------------------') 
+    print('>> Save model...')
     # save model to file
     bst.save_model(modelfilename+'.txt')
 
+    print('--------------------------------------------------------------------') 
+    print('>> Plot feature importances...')
+    lgb.plot_importance(bst)
+    fig=plt.gcf()
+    fig.set_size_inches(50,50)
+    savename = modelfilename + '.png'
+    plt.savefig(savename)
+    print('done')     
+
+
+    print('--------------------------------------------------------------------') 
     print('reading test')
     test_df = read_processed_h5(TEST_HDF5,predictors+['click_id'])
     print(test_df.info()); print(test_df.head())
     print_memory()
-
     print("test size : ", len(test_df))
     sub = pd.DataFrame()
     sub['click_id'] = test_df['click_id'].astype('int')
 
-    print("Predicting...")
+    print(">> Predicting...")
     sub['is_attributed'] = bst.predict(test_df[predictors],num_iteration=best_iteration)
     # if not debug:
     print("writing...")
@@ -365,13 +394,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 # num_leaves_list = [7,9,11,13,15,31,31,9]
 # max_depth_list = [3,4,5,6,7,5,6,5]
 
-num_leaves_list = [7]
-max_depth_list = [3]
+num_leaves_list = [7,31]
+max_depth_list = [3,5]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')
-    # num_leaves = num_leaves_list[len(num_leaves_list)-1-i]
-    # max_depth = max_depth_list[len(num_leaves_list)-1-i]
     num_leaves = num_leaves_list[i]
     max_depth = max_depth_list[i]
     print('num leaves:', num_leaves)

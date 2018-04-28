@@ -105,36 +105,36 @@ DATATYPE_DICT_CONVERT = [
 def read_processed_h5_and_write(filename, tofilename):
     with h5py.File(filename,'r') as hf:
         feature_list = list(hf.keys())        
-    # with h5py.File(tofilename,'r') as hf_to:
-    #     feature_list_to = list(hf_to.keys())            
+    with h5py.File(tofilename,'r') as hf_to:
+        feature_list_to = list(hf_to.keys())            
     for feature in feature_list:
-        # if feature in feature_list_to:
-        #     print('already added')
-        # else:            
-        t0 = time.time()
-        print('>> doing', feature)
-        if feature!='dump_later' and feature != 'click_time':
-            is_convert = False
-            for key in DATATYPE_DICT_CONVERT:
-                if key in feature:
-                    is_convert = True
-                    print('need to convert', feature, 'to int to save memory')
-            df_temp = pd.DataFrame()            
-            print('reading...')
-            df_temp[feature] = pd.read_hdf(filename, key=feature)
-            if is_convert:
-                print('min anc max before:', df_temp[feature].min(), df_temp[feature].max())                        
-                df_temp = df_temp.fillna(0)
-                df_temp[feature] = df_temp[feature].astype('uint32')                        
-                print('min anc max after:', df_temp[feature].min(), df_temp[feature].max()) 
+        if feature in feature_list_to:
+            print('already added')
+        else:            
+            t0 = time.time()
+            print('>> doing', feature)
+            if feature!='dump_later' and feature != 'click_time':
+                is_convert = False
+                for key in DATATYPE_DICT_CONVERT:
+                    if key in feature:
+                        is_convert = True
+                        print('need to convert', feature, 'to int to save memory')
+                df_temp = pd.DataFrame()            
+                print('reading...')
+                df_temp[feature] = pd.read_hdf(filename, key=feature)
+                if is_convert:
+                    print('min anc max before:', df_temp[feature].min(), df_temp[feature].max())                        
+                    df_temp = df_temp.fillna(0)
+                    df_temp[feature] = df_temp[feature].astype('uint32')                        
+                    print('min anc max after:', df_temp[feature].min(), df_temp[feature].max()) 
 
-            print('saving')                
-            df_temp.to_hdf(tofilename, key=feature, mode='a')    
-            del df_temp; gc.collect()
-            print_memory()
-            t1 = time.time()
-            total = t1-t0
-            print('total reading time:', total)
+                print('saving')                
+                df_temp.to_hdf(tofilename, key=feature, mode='a')    
+                del df_temp; gc.collect()
+                print_memory()
+                t1 = time.time()
+                total = t1-t0
+                print('total reading time:', total)
 
 print(TRAIN_HDF5, TO_TRAIN_HDF5)
 print(TEST_HDF5, TO_TEST_HDF5)

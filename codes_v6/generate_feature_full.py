@@ -410,11 +410,11 @@ GROUP_BY_NEXT_CLICKS = [
     ['ip'],
     ['ip', 'app'],
     ['ip', 'channel'],
-    # ['ip', 'device', 'os'],
+    ['ip', 'device', 'os'],
     
     # V3
-    # ['ip', 'os', 'device', 'app'],
-    # ['ip', 'os', 'device', 'channel'],
+    ['ip', 'os', 'device', 'app'],
+    ['ip', 'os', 'device', 'channel'],
     ['ip', 'os', 'device', 'channel', 'app']
 ]
 
