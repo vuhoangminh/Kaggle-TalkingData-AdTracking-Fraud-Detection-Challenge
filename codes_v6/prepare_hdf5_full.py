@@ -214,14 +214,25 @@ REMOVED_LIST = [
     'cat_combination_numeric_category.csv'
     ]
 
+# DATATYPE_DICT = {
+#     'count'     : 'uint32',
+#     'nunique'   : 'uint32',
+#     'cumcount'  : 'uint32',
+#     'var'       : 'float32',
+#     'std'       : 'float32',
+#     'confRate'  : 'uint32',
+#     'nextclick' : 'int64',
+#     'mean'      : 'float32'
+#     }
+
 DATATYPE_DICT = {
-    'count'     : 'uint32',
-    'nunique'   : 'uint32',
-    'cumcount'  : 'uint32',
+    'count'     : 'float',
+    'nunique'   : 'float',
+    'cumcount'  : 'float',
     'var'       : 'float32',
     'std'       : 'float32',
     'confRate'  : 'uint32',
-    'nextclick' : 'int64',
+    'nextclick' : 'int',
     'mean'      : 'float32'
     }
 
@@ -288,7 +299,7 @@ def add_dataset_to_hdf5(save_name, train_df, which_dataset):
             temp.to_hdf(store_name, key=feature, mode='a')
             get_info_key_hdf5(store_name, key=feature)          
 
-def prepare_dataset_hdf5(which_dataset, train_df, filename, usecols, dtype = DATATYPE_LIST):
+def prepare_dataset_hdf5(which_dataset, filename, usecols, dtype = DATATYPE_LIST):
     if which_dataset == 'test':
         if debug:
             nrows = NROWS
@@ -306,7 +317,6 @@ def prepare_dataset_hdf5(which_dataset, train_df, filename, usecols, dtype = DAT
         store_name = TRAIN_HDF5                        
     store = pd.HDFStore(store_name) 
     existing_key = store.keys()
-    # print(existing_key)
     for feature in usecols:
         key = '/' + feature
         if key in existing_key:
@@ -324,27 +334,27 @@ def prepare_dataset_hdf5(which_dataset, train_df, filename, usecols, dtype = DAT
             temp.to_hdf(store_name, key=feature, mode='a')
             get_info_key_hdf5(store_name, key=feature)
 
-def do_same(save_name, train_df, which_dataset):
-    print(train_df.info())
+def do_same(save_name, which_dataset):
+    # print(train_df.info())
 
     print('-------------------------------------------------------------------')
     print('load full_cat_combination_numeric_category...')
     filename = PATH + DATASET + '_cat_combination_numeric_category.csv'
-    prepare_dataset_hdf5(which_dataset, train_df, 
+    prepare_dataset_hdf5(which_dataset, 
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()  
 
     print('-------------------------------------------------------------------')
     print('load full_cat_combination_numeric_category...')
     filename = PATH + DATASET + '_cat_combination_numeric_category.csv'
-    prepare_dataset_hdf5(which_dataset, train_df, 
+    prepare_dataset_hdf5(which_dataset,  
             filename, usecols=['mobile', 'mobile_app', 'mobile_channel', 'app_channel'])
     print_memory()    
 
     print('-------------------------------------------------------------------')
     print('load full_day_hour_min...')
     filename = PATH + DATASET + '_day_hour_min.csv'
-    prepare_dataset_hdf5(which_dataset, train_df, 
+    prepare_dataset_hdf5(which_dataset,  
             filename, usecols=['day', 'hour', 'min'])
     print_memory()
 
@@ -365,7 +375,7 @@ def do_same(save_name, train_df, which_dataset):
             filename = PATH + DATASET +'_' + feature_name + '.csv'
             print ('>> doing: {}, type {}, and save to {}'.format(feature_name, type, filename))
             print('merging...')
-            prepare_dataset_hdf5(which_dataset, train_df, filename, 
+            prepare_dataset_hdf5(which_dataset, filename, 
                     usecols=[feature_name])
             print_memory()
 
@@ -374,26 +384,26 @@ def do_train():
     print('do TRAIN')
     print('-------------------------------------------------------------------')
     print('load dataset...')
-    train_df, test_df = read_train_test('is_not_merged')
-    del test_df; gc.collect()
+    # train_df, test_df = read_train_test('is_not_merged')
+    # del test_df; gc.collect()
     print_memory()
     which_dataset = 'train'
     save_name='train_' + DATASET + '.h5'
-    add_dataset_to_hdf5(save_name, train_df, which_dataset)
-    do_same(save_name, train_df, which_dataset)
+    # add_dataset_to_hdf5(save_name, train_df, which_dataset)
+    do_same(save_name, which_dataset)
     
 def do_test():
     print('-------------------------------------------------------------------')
     print('do TEST')
     print('-------------------------------------------------------------------')
     print('load dataset...')
-    train_df, test_df = read_train_test('is_not_merged')                
-    del train_df; gc.collect()
+    # train_df, test_df = read_train_test('is_not_merged')                
+    # del train_df; gc.collect()
     print_memory()
     which_dataset = 'test'
     save_name='test_' + DATASET + '.h5'
-    add_dataset_to_hdf5(save_name, test_df, which_dataset)
-    do_same(save_name, test_df, which_dataset)
+    # add_dataset_to_hdf5(save_name, test_df, which_dataset)
+    do_same(save_name, which_dataset)
     
 DATATYPE_LIST_UPDATED = update_datatype_dict()
 
@@ -405,7 +415,7 @@ for key, type in DATATYPE_LIST_UPDATED.items():
 # print('FINAL SUMMARY')
 # print('============================================================================')
 
-do_test()
+# do_test()
 do_train()
 
 print('============================================================================')

@@ -38,8 +38,8 @@ frm = 1; to = 100
 
 TARGET = ['is_attributed']
 
-TRAIN_HDF5 = 'train_day9.h5'
-TEST_HDF5 = 'test_day9.h5'
+TRAIN_HDF5 = 'train_full.h5'
+TEST_HDF5 = 'test_full.h5'
 
 
 # OPTION 1 - OVERFITTING
@@ -284,10 +284,10 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_day9_%d_%d.csv.gz'%(num_leaves,max_depth)
+            'percent_full_%d_%d.csv.gz'%(num_leaves,max_depth)
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_day9_%d_%d'%(num_leaves,max_depth) 
+            'percent_full_%d_%d'%(num_leaves,max_depth) 
     print('submission file name:', subfilename)
     print('model file name:', modelfilename)
     print('fraction:', frac)
@@ -379,7 +379,7 @@ for i in range(len(num_leaves_list)):
     predictors = get_predictors()
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_day9_%d_%d.csv.gz'%(num_leaves,max_depth)
+            'percent_full_%d_%d.csv.gz'%(num_leaves,max_depth)
     if os.path.isfile(subfilename):
         print('--------------------------------------')
         print('Already trained...')

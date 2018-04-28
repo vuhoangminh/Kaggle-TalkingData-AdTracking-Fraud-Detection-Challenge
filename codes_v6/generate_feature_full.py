@@ -1,4 +1,4 @@
-debug=1
+debug=0
 print('debug', debug)
 
 import argparse
@@ -410,11 +410,11 @@ GROUP_BY_NEXT_CLICKS = [
     ['ip'],
     ['ip', 'app'],
     ['ip', 'channel'],
-    ['ip', 'device', 'os'],
+    # ['ip', 'device', 'os'],
     
     # V3
-    ['ip', 'os', 'device', 'app'],
-    ['ip', 'os', 'device', 'channel'],
+    # ['ip', 'os', 'device', 'app'],
+    # ['ip', 'os', 'device', 'channel'],
     ['ip', 'os', 'device', 'channel', 'app']
 ]
 
@@ -746,6 +746,16 @@ def extend_df_with_time_cat(train_df):
     if debug: print(train_df.info())
     return train_df
 
+def extend_df_with_time(train_df):
+    gp = pd.read_csv(TIME_FILENAME, 
+            usecols=['hour', 'day'],dtype=DATATYPE_LIST)
+    train_df = pd.concat([train_df, gp], axis=1, join_axes=[train_df.index])
+    del gp; gc.collect()
+    print_memory('after reading time')
+
+    if debug: print(train_df.info())
+    return train_df
+
 def extend_df_with_cat(train_df):
     print('>> load cat combination file...', CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME)
     gp = pd.read_csv(CAT_COMBINATION_NUMERIC_CATEGORY_FILENAME,
@@ -766,14 +776,15 @@ def main():
     if debug: print(train_df.info())
     print('>> reading time...')    
     print('------------------------------------------------------') 
-    create_day_hour_min(train_df)
+    create_time_call(train_df)
     print('------------------------------------------------------')
     create_cat_combination_call(train_df)
     print('------------------------------------------------------')
     create_cat_combination_to_number_call(train_df)
     print('------------------------------------------------------')
     print('>> extend df with time and new cat...')
-    train_df = extend_df_with_time_cat(train_df)
+    # train_df = extend_df_with_time_cat(train_df)
+    train_df = extend_df_with_time(train_df)
     print('------------------------------------------------------')
     print('>> create kernel features...')
     create_kernel_features(train_df)
