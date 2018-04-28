@@ -72,8 +72,8 @@ DATATYPE_LIST = {
     'hour'              : 'uint8'
     }
 
-TRAIN_HDF5 = 'train_' + DATASET + '.h5'
-TEST_HDF5 = 'test_' + DATASET + '.h5'
+TRAIN_HDF5 = 'converted_train_' + DATASET + '.h5'
+TEST_HDF5 = 'converted_test_' + DATASET + '.h5'
 # TEST_HDF5 = 'test_day123.h5'
       
 

@@ -104,8 +104,7 @@ else:
     print('for testing only...')
     print('=======================================================================')
 
-SIZE_TRAIN = 53016937
-# 184903890
+SIZE_TRAIN = 184903890
 SIZE_TEST = 18790469
 
 def print_memory(print_string=''):

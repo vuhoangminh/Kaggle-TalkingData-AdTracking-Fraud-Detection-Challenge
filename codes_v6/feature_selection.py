@@ -248,63 +248,73 @@ def ranking(ranks, names, order=1):
     return dict(zip(names, ranks))
 
 
-print('>> run rlasso/Stability')
-# Finally let's run our Selection Stability method with Randomized Lasso
-rlasso = RandomizedLasso(alpha=0.04, verbose=3)
-rlasso.fit(X, Y)
-ranks["rlasso/Stability"] = ranking(np.abs(rlasso.scores_), colnames)
-print('finished')
-print_memory()
+def run_rlasso(ranks):
+    print('>> run rlasso/Stability')
+    # Finally let's run our Selection Stability method with Randomized Lasso
+    rlasso = RandomizedLasso(alpha=0.04, verbose=3)
+    rlasso.fit(X, Y)
+    ranks["rlasso/Stability"] = ranking(np.abs(rlasso.scores_), colnames)
+    print('finished')
+    print_memory()
+    return ranks
 
 
 # # 3. Recursive Feature Elimination ( RFE )
 
-# Construct our Linear Regression model
-print('>> run RFE')
-lr = LinearRegression(normalize=True)
-lr.fit(X,Y)
-#stop the search when only the last feature is left
-rfe = RFE(lr, n_features_to_select=20, verbose =3)
-rfe.fit(X,Y)
-ranks["RFE"] = ranking(list(map(float, rfe.ranking_)), colnames, order=-1)
-print('finished')
-print_memory()
-# print(ranks['RFE'])
+def run_rfe(ranks):
+    # Construct our Linear Regression model
+    print('>> run RFE')
+    lr = LinearRegression(normalize=True)
+    lr.fit(X,Y)
+    #stop the search when only the last feature is left
+    rfe = RFE(lr, n_features_to_select=1, verbose =3)
+    rfe.fit(X,Y)
+    ranks["RFE"] = ranking(list(map(float, rfe.ranking_)), colnames, order=-1)
+    print('finished')
+    print_memory()
+    # print(ranks['RFE'])
+    return ranks
+
 
 
 # # 4. Linear Model Feature Ranking
-# Using Linear Regression
-print('>> run LinReg')
-lr = LinearRegression(normalize=True)
-lr.fit(X,Y)
-ranks["LinReg"] = ranking(np.abs(lr.coef_), colnames)
-print_memory()
+
+def run_linreg_ridge_lasso(ranks):
+    # Using Linear Regression
+    print('>> run LinReg')
+    lr = LinearRegression(normalize=True)
+    lr.fit(X,Y)
+    ranks["LinReg"] = ranking(np.abs(lr.coef_), colnames)
+    print_memory()
 
 
-# Using Ridge 
-print('>> run Ridge')
-ridge = Ridge(alpha = 7)
-ridge.fit(X,Y)
-ranks['Ridge'] = ranking(np.abs(ridge.coef_), colnames)
-print_memory()
+    # Using Ridge 
+    print('>> run Ridge')
+    ridge = Ridge(alpha = 7)
+    ridge.fit(X,Y)
+    ranks['Ridge'] = ranking(np.abs(ridge.coef_), colnames)
+    print_memory()
 
-# Using Lasso
-print('>> run Lasso')
-lasso = Lasso(alpha=.05)
-lasso.fit(X, Y)
-ranks["Lasso"] = ranking(np.abs(lasso.coef_), colnames)
-print_memory()
+    # Using Lasso
+    print('>> run Lasso')
+    lasso = Lasso(alpha=.05)
+    lasso.fit(X, Y)
+    ranks["Lasso"] = ranking(np.abs(lasso.coef_), colnames)
+    print_memory()
 
-
-# # # 5. Random Forest feature ranking
-print('>> run RF')
+    return ranks
 
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
-forest = ExtraTreesClassifier(n_estimators=50, random_state=0, verbose=3)
-forest.fit(X,Y)
-ranks["RF"] = ranking(forest.feature_importances_, colnames)
-print_memory()
+
+def run_rf(ranks):
+    # # # 5. Random Forest feature ranking
+    print('>> run RF')
+    forest = ExtraTreesClassifier(n_estimators=50, random_state=0, verbose=3)
+    forest.fit(X,Y)
+    ranks["RF"] = ranking(forest.feature_importances_, colnames)
+    print_memory()
+    return ranks
 
 # rf = RandomForestRegressor(n_jobs=-1, n_estimators=100, verbose=3)
 # rf.fit(X,Y)
@@ -312,40 +322,47 @@ print_memory()
 # print_memory()
 
 
-# # 6. Creating the Feature Ranking Matrix
-# Create empty dictionary to store the mean value calculated from all the scores
-print('>> final step')
-r = {}
-for name in colnames:
-    r[name] = round(np.mean([ranks[method][name] 
-                             for method in ranks.keys()]), 2)
-    print (name)                                 
- 
-methods = sorted(ranks.keys())
-ranks["Mean"] = r
-methods.append("Mean")
- 
-print("\t%s" % "\t".join(methods))
-for name in colnames:
-    print("%s\t%s" % (name, "\t".join(map(str, 
-                         [ranks[method][name] for method in methods]))))
+def combine(ranks):
+    # # 6. Creating the Feature Ranking Matrix
+    # Create empty dictionary to store the mean value calculated from all the scores
+    print('>> final step')
+    r = {}
+    for name in colnames:
+        r[name] = round(np.mean([ranks[method][name] 
+                                for method in ranks.keys()]), 2)
+        print (name)                                 
+    
+    methods = sorted(ranks.keys())
+    ranks["Mean"] = r
+    methods.append("Mean")
+    
+    print("\t%s" % "\t".join(methods))
+    for name in colnames:
+        print("%s\t%s" % (name, "\t".join(map(str, 
+                            [ranks[method][name] for method in methods]))))
 
-df = pd.DataFrame(ranks)
-# print (df)
-df.to_csv('rank_' + str(END_POINT) + '_new.csv')
+    df = pd.DataFrame(ranks)
+    # print (df)
+    df.to_csv('rank_' + str(END_POINT) + '_new_onlyrfe.csv')
 
-# Put the mean scores into a Pandas dataframe
-meanplot = pd.DataFrame(list(r.items()), columns= ['Feature','Mean Ranking'])
+    # Put the mean scores into a Pandas dataframe
+    meanplot = pd.DataFrame(list(r.items()), columns= ['Feature','Mean Ranking'])
 
-# Sort the dataframe
-meanplot = meanplot.sort_values('Mean Ranking', ascending=False)
+    # Sort the dataframe
+    meanplot = meanplot.sort_values('Mean Ranking', ascending=False)
 
-# Let's plot the ranking of the features
-sns.factorplot(x="Mean Ranking", y="Feature", data = meanplot, kind="bar", 
-               size=14, aspect=1.9, palette='coolwarm')
+    # Let's plot the ranking of the features
+    sns.factorplot(x="Mean Ranking", y="Feature", data = meanplot, kind="bar", 
+                size=14, aspect=1.9, palette='coolwarm')
 
-fig=plt.gcf()
-fig.set_size_inches(50,50)
-savename = yearmonthdate_string + '_' + '_feature_ranking_' + str(END_POINT) + '_new.png'
-plt.savefig(savename)
-print('done')
+    fig=plt.gcf()
+    fig.set_size_inches(50,50)
+    savename = yearmonthdate_string + '_' + '_feature_ranking_' + str(END_POINT) + '_new_onlyrfe.png'
+    plt.savefig(savename)
+    print('done')
+
+# ranks = run_rlasso(ranks)
+ranks = run_rfe(ranks)
+# ranks = run_linreg_ridge_lasso(ranks)
+# ranks = run_rf(ranks)
+combine(ranks)

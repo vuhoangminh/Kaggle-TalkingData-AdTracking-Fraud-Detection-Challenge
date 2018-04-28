@@ -3,8 +3,9 @@ import matplotlib
 matplotlib.use('Agg')
 
 debug=0
-frac=1
+frac=0.5
 print('debug', debug)
+OPTION = 4
 
 
 import pandas as pd
@@ -55,76 +56,77 @@ if debug == 0 or debug ==2:
     TEST_HDF5 = 'converted_' + TEST_HDF5
 
 
-# OPTION 1 - OVERFITTING
-# PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-#     'app_confRate',
-#     'device_confRate',
-#     'ip_app_channel_day_count_hour',
-#     'ip_app_channel_day_nunique_hour',
-#     'ip_app_channel_day_std_hour',
-#     'ip_app_confRate',
-#     'ip_app_nextclick',
-#     'ip_channel_nextclick',
-#     'ip_confRate',
-#     'ip_device_os_nextclick',
-#     'ip_mobile_app_channel_day_std_hour',
-#     'ip_mobile_app_day_std_hour',
-#     'ip_mobile_channel_day_std_hour',
-#     'ip_mobile_day_std_hour',
-#     'ip_nextclick',
-#     'ip_os_device_app_nextclick',
-#     'ip_os_device_channel_app_nextclick',
-#     'mobile_app_confRate'
-#     ]  
+if OPTION == 1:
+    # OPTION 1 - OVERFITTING
+    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+        'app_confRate',
+        'device_confRate',
+        'ip_app_channel_day_count_hour',
+        'ip_app_channel_day_nunique_hour',
+        'ip_app_channel_day_std_hour',
+        'ip_app_confRate',
+        'ip_app_nextclick',
+        'ip_channel_nextclick',
+        'ip_confRate',
+        'ip_device_os_nextclick',
+        'ip_mobile_app_channel_day_std_hour',
+        'ip_mobile_app_day_std_hour',
+        'ip_mobile_channel_day_std_hour',
+        'ip_mobile_day_std_hour',
+        'ip_nextclick',
+        'ip_os_device_app_nextclick',
+        'ip_os_device_channel_app_nextclick',
+        'mobile_app_confRate'
+        ]  
 
+if OPTION == 2:
+    # # OPTION 2
+    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+        'app_confRate',
+        'device_confRate',
+        'ip_confRate',
+        'ip_app_channel_day_count_hour',
+        'ip_app_channel_day_nunique_hour',
+        'ip_app_channel_day_var_hour',
+        'ip_app_nextclick',
+        'ip_channel_nextclick',  
+        'ip_device_os_nextclick',   
+        'ip_os_device_app_nextclick',
+        'ip_os_device_channel_app_nextclick',
+        'mobile_app_confRate'
+        ] 
 
-# # OPTION 2
-# PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-#     'app_confRate',
-#     'device_confRate',
-#     'ip_confRate',
-#     'ip_app_channel_day_count_hour',
-#     'ip_app_channel_day_nunique_hour',
-#     'ip_app_channel_day_var_hour',
-#     'ip_app_nextclick',
-#     'ip_channel_nextclick',  
-#     'ip_device_os_nextclick',   
-#     'ip_os_device_app_nextclick',
-#     'ip_os_device_channel_app_nextclick',
-#     'mobile_app_confRate'
-#     ] 
+if OPTION == 3:
+    # OPTION 3 - PREVIOUS RESULT
+    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+        'ip_nunique_channel',
+        'ip_device_os_cumcount_app',
+        'ip_day_nunique_hour',
+        'ip_nunique_app',
+        'ip_app_nunique_os',
+        'ip_nunique_device',
+        'app_nunique_channel',
+        'ip_cumcount_os',
+        'ip_device_os_nunique_app',
+        'ip_os_device_app_nextclick',
+        'ip_day_hour_count_channel',
+        'ip_app_count_channel',
+        'ip_app_os_count_channel'
+        ]     
 
-# OPTION 3 - PREVIOUS RESULT
-PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-    'ip_nunique_channel',
-    'ip_device_os_cumcount_app',
-    'ip_day_nunique_hour',
-    'ip_nunique_app',
-    'ip_app_nunique_os',
-    'ip_nunique_device',
-    'app_nunique_channel',
-    'ip_cumcount_os',
-    'ip_device_os_nunique_app',
-    'ip_os_device_app_nextclick',
-    'ip_day_hour_count_channel',
-    'ip_app_count_channel',
-    'ip_app_os_count_channel',
-
-    # 'app_confRate',
-    # 'device_confRate',
-    # 'ip_confRate',
-    # 'mobile_app_confRate',
-
-    # 'ip_app_channel_day_count_hour',
-    # 'ip_app_channel_day_nunique_hour',
-    # 'ip_app_channel_day_var_hour',
-    
-    # 'ip_app_nextclick',
-    # 'ip_channel_nextclick',  
-    # 'ip_device_os_nextclick',   
-    # 'ip_os_device_channel_app_nextclick', 
-    ]     
-
+if OPTION == 4:
+    # OPTION 4 - RFE
+    PREDICTORS = ['ip', 'app', 'os', 'channel', 'hour',
+        'ip_day_hour_count_mobile_channel',
+        'ip_day_count_mobile',
+        'ip_day_hour_count_mobile_app',
+        'ip_day_count_mobile_app',
+        'ip_day_hour_count_mobile',
+        'ip_day_count_hour',
+        'ip_day_count_app',
+        'ip_app_channel_var_day',
+        'ip_mobile_day_std_hour'
+        ]  
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -302,10 +304,10 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d.csv.gz'%(num_leaves,max_depth)
+            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d'%(num_leaves,max_depth) 
+            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION
 
     print('submission file name:', subfilename)
     print('model file name:', modelfilename)
@@ -399,6 +401,7 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 # num_leaves_list = [7,9,11,13,15,31,31,9]
 # max_depth_list = [3,4,5,6,7,5,6,5]
 
+
 num_leaves_list = [7,31,9]
 max_depth_list = [3,5,4]
 
@@ -411,7 +414,7 @@ for i in range(len(num_leaves_list)):
     predictors = get_predictors()
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d.csv.gz'%(num_leaves,max_depth)
+            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION + '.csv.gz'
     if os.path.isfile(subfilename):
         print('--------------------------------------')
         print('Already trained...')
