@@ -262,7 +262,9 @@ def lgb_modelfit_nocv(params, train_df_array, train_df_labels, val_df_array, val
                           feature_name=predictors,
                           categorical_feature=categorical_features
                           )
-
+    del train_df_array, train_df_labels, val_df_array, val_df_labels
+    gc.collect()
+    
     print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')                          
 
     evals_results = {}
@@ -449,8 +451,8 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 # num_leaves_list = [7,9,11,13,15,31,31,9]
 # max_depth_list = [3,4,5,6,7,5,6,5]
 
-num_leaves_list = [7,9,15]
-max_depth_list = [3,4,7]
+num_leaves_list = [7,9,31]
+max_depth_list = [3,4,5]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')
