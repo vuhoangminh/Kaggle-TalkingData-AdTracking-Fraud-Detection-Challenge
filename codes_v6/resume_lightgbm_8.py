@@ -5,7 +5,7 @@ matplotlib.use('Agg')
 debug=0
 frac=0.5
 print('debug', debug)
-OPTION = 4
+OPTION = 8
 
 
 import pandas as pd
@@ -51,50 +51,22 @@ else:
 
 TRAIN_HDF5 = 'train_' + DATASET + '.h5'
 TEST_HDF5 = 'test_' + DATASET + '.h5'
-if debug == 0 or debug ==2:
+if debug == 0:
     TRAIN_HDF5 = 'converted_' + TRAIN_HDF5
     TEST_HDF5 = 'converted_' + TEST_HDF5
 
 
 if OPTION == 1:
-    # OPTION 1 - OVERFITTING
-    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-        'app_confRate',
-        'device_confRate',
-        'ip_app_channel_day_count_hour',
-        'ip_app_channel_day_nunique_hour',
-        'ip_app_channel_day_std_hour',
-        'ip_app_confRate',
-        'ip_app_nextclick',
-        'ip_channel_nextclick',
-        'ip_confRate',
-        'ip_device_os_nextclick',
-        'ip_mobile_app_channel_day_std_hour',
-        'ip_mobile_app_day_std_hour',
-        'ip_mobile_channel_day_std_hour',
-        'ip_mobile_day_std_hour',
-        'ip_nextclick',
+    # OPTION 1 - core
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
         'ip_os_device_app_nextclick',
-        'ip_os_device_channel_app_nextclick',
-        'mobile_app_confRate'
-        ]  
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel'
+    ]        
 
-if OPTION == 2:
-    # # OPTION 2
-    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
-        'app_confRate',
-        'device_confRate',
-        'ip_confRate',
-        'ip_app_channel_day_count_hour',
-        'ip_app_channel_day_nunique_hour',
-        'ip_app_channel_day_var_hour',
-        'ip_app_nextclick',
-        'ip_channel_nextclick',  
-        'ip_device_os_nextclick',   
-        'ip_os_device_app_nextclick',
-        'ip_os_device_channel_app_nextclick',
-        'mobile_app_confRate'
-        ] 
 
 if OPTION == 3:
     # OPTION 3 - PREVIOUS RESULT
@@ -111,12 +83,17 @@ if OPTION == 3:
         'ip_os_device_app_nextclick',
         'ip_day_hour_count_channel',
         'ip_app_count_channel',
-        'ip_app_os_count_channel'
+        'ip_app_os_count_channel',
+        # 'ip_day_channel_var_hour', # miss
+        'ip_app_os_var_hour',
+        'ip_app_channel_var_day',
+        'ip_app_channel_mean_hour'
         ]     
 
 if OPTION == 4:
     # OPTION 4 - RFE
     PREDICTORS = ['ip', 'app', 'os', 'channel', 'hour',
+        'ip_os_device_app_nextclick',
         'ip_day_hour_count_mobile_channel',
         'ip_day_count_mobile',
         'ip_day_hour_count_mobile_app',
@@ -125,8 +102,98 @@ if OPTION == 4:
         'ip_day_count_hour',
         'ip_day_count_app',
         'ip_app_channel_var_day',
-        'ip_mobile_day_std_hour'
+        'ip_mobile_day_std_hour',
+        'ip_day_hour_count_channel',
+        'ip_nunique_channel',
+        'ip_device_os_nunique_app',
+        'ip_app_nextclick'
         ]  
+
+if OPTION == 5:
+    # OPTION 4 - RFE
+    PREDICTORS = ['ip', 'app', 'os', 'channel', 'hour',
+        'device', 'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_nextclick',
+        'ip_app_nextclick',
+        'ip_device_os_nextclick',
+        'ip_channel_nextclick',
+        'ip_os_device_app_nextclick',
+        'ip_os_device_channel_app_nextclick',
+        'ip_os_device_channel_nextclick',
+        'ip_day_hour_var_channel',
+        'ip_day_hour_nunique_channel',
+        'ip_app_nunique_channel'
+        ] 
+
+if OPTION == 6:
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel',
+
+        # add 10
+        'ip_mobile_day_cumcount_hour',
+        'ip_var_os',
+        'ip_day_count_channel',
+        'ip_app_channel_day_cumcount_hour',
+        'ip_day_count_mobile_channel',
+        'ip_mobile_day_count_hour',
+        'ip_mobile_day_var_hour',
+        'ip_mobile_day_nunique_hour',
+        'ip_app_os_nunique_channel',
+        'ip_mobile_channel_day_cumcount_hour'
+        ] 
+
+if OPTION == 7:
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel',
+
+        # add 10
+        'ip_mobile_app_channel_day_count_hour',
+        'ip_mobile_channel_day_count_hour',
+        'ip_mobile_app_day_count_hour',
+        'ip_mobile_app_channel_day_cumcount_hour',
+        'ip_app_channel_day_count_hour',
+        'ip_mobile_app_day_cumcount_hour',
+        'ip_app_channel_day_std_hour',
+        'ip_app_channel_day_var_hour',
+        'ip_app_channel_day_nunique_hour',
+        'ip_app_os_var_hour'
+        ]         
+
+
+if OPTION == 8:
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel',
+
+        # add 10
+        'ip_mobile_app_day_std_hour',
+        'ip_mobile_app_day_var_hour',
+        'ip_mobile_channel_day_nunique_hour',
+        'ip_mobile_app_day_nunique_hour',
+        'ip_mobile_channel_day_std_hour',
+        'ip_mobile_channel_day_var_hour',
+        'ip_mobile_app_channel_day_std_hour',
+        'ip_mobile_app_channel_day_var_hour',
+        'ip_mobile_app_channel_day_nunique_hour',
+        'ip_app_channel_var_day',
+        'ip_app_channel_mean_hour'
+        ]  
+
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -288,6 +355,8 @@ def DO(frm,to,fileno,num_leaves,max_depth):
         print('for LIGHT TEST only...')
         print('=======================================================================')
         print('reading train')
+    print(predictors)
+    print('option:', OPTION)
     train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
 
     train_df = train_df.sample(frac=frac, random_state = SEED)
@@ -304,10 +373,10 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION + '.csv.gz'
+            'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(OPTION) + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION
+            'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(OPTION)
 
     print('submission file name:', subfilename)
     print('model file name:', modelfilename)
@@ -371,14 +440,14 @@ def DO(frm,to,fileno,num_leaves,max_depth):
     # save model to file
     bst.save_model(modelfilename+'.txt')
 
-    print('--------------------------------------------------------------------') 
-    print('>> Plot feature importances...')
-    lgb.plot_importance(bst)
-    fig=plt.gcf()
-    fig.set_size_inches(50,50)
-    savename = modelfilename + '.png'
-    plt.savefig(savename)
-    print('done')     
+    # print('--------------------------------------------------------------------') 
+    # print('>> Plot feature importances...')
+    # lgb.plot_importance(bst)
+    # fig=plt.gcf()
+    # fig.set_size_inches(50,50)
+    # savename = modelfilename + '.png'
+    # plt.savefig(savename)
+    # print('done')     
 
 
     print('--------------------------------------------------------------------') 
@@ -401,9 +470,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 # num_leaves_list = [7,9,11,13,15,31,31,9]
 # max_depth_list = [3,4,5,6,7,5,6,5]
 
+# num_leaves_list = [7,9,15]
+# max_depth_list = [3,4,7]
 
-num_leaves_list = [7,31,9]
-max_depth_list = [3,5,4]
+num_leaves_list = [7]
+max_depth_list = [3]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')
@@ -414,7 +485,7 @@ for i in range(len(num_leaves_list)):
     predictors = get_predictors()
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
-            'percent_full_%d_%d'%(num_leaves,max_depth) + OPTION + '.csv.gz'
+            'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(OPTION) + '.csv.gz'
     if os.path.isfile(subfilename):
         print('--------------------------------------')
         print('Already trained...')

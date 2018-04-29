@@ -544,6 +544,7 @@ REPLICATE_LIST_CUMCOUNT = [
 
 REPLICATE_LIST_VAR = [
     ['ip','day','hour','channel'],
+    ['ip','day','channel', 'hour'],
     ['ip', 'os'],
     ['ip','app', 'os', 'hour'],
     ['ip','app', 'channel', 'day'],
@@ -552,6 +553,10 @@ REPLICATE_LIST_VAR = [
 REPLICATE_LIST_MEAN = [
     ['ip','app', 'channel','hour']
 ]
+
+        # 'ip_day_channel_var_hour', # miss
+        # 'ip_day_channel_var_hour', # miss
+
 
 def replicate_result(train_df):
     new_feature_list=[]

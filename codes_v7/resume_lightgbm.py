@@ -3,10 +3,8 @@ import matplotlib
 matplotlib.use('Agg')
 
 debug=0
-frac=1
+frac=0.5
 print('debug', debug)
-OPTION = 3
-
 
 import pandas as pd
 import time
@@ -54,124 +52,150 @@ if debug == 0:
     TRAIN_HDF5 = 'converted_' + TRAIN_HDF5
     TEST_HDF5 = 'converted_' + TEST_HDF5
 
+# OPTION 3 - PREVIOUS RESULT
+PREDICTORS3 = [
+    'app', 'device', 'os', 'channel', 'hour',
+    'ip_nunique_channel',   # X0
+    'ip_device_os_cumcount_app',
+    'ip_day_nunique_hour',
+    'ip_nunique_app',
+    'ip_app_nunique_os',
+    'ip_nunique_device',
+    'app_nunique_channel',
+    # 'ip_cumcount_os', # X6
+    'ip_device_os_nunique_app', # X8
+    'ip_os_device_app_nextclick',
+    'ip_day_hour_count_channel',
+    'ip_app_count_channel',
+    'ip_app_os_count_channel',
+    # 'ip_day_channel_var_hour', # miss
+    'ip_app_os_var_hour',
+    'ip_app_channel_var_day',
+    'ip_app_channel_mean_hour'
+    ]     
 
-if OPTION == 1:
-    # OPTION 1 - core
-    PREDICTORS = [
-        # core 9
-        'ip', 'app', 'os', 'channel', 'hour',
-        'mobile',
-        'ip_os_device_app_nextclick',
-        'ip_device_os_nunique_app',
-        'ip_nunique_channel'
-    ]        
+
+# OPTION 4 - RFE
+PREDICTORS4 = [
+    'app', 'os', 'channel', 'hour',
+    'ip_os_device_app_nextclick',
+    'ip_day_hour_count_mobile_channel',
+    'ip_day_count_mobile',
+    'ip_day_hour_count_mobile_app',
+    'ip_day_count_mobile_app',
+    'ip_day_hour_count_mobile',
+    'ip_day_count_hour',
+    'ip_day_count_app',
+    'ip_app_channel_var_day',
+    'ip_mobile_day_std_hour',
+    'ip_day_hour_count_channel',
+    'ip_nunique_channel',
+    'ip_device_os_nunique_app',
+    'ip_app_nextclick'
+    ]  
+
+# OPTION 5 - nextclick
+PREDICTORS5 = [
+    'app', 'os', 'channel', 'hour',
+    'device', 'mobile',
+    'ip_os_device_app_nextclick',
+    'ip_nextclick',
+    'ip_app_nextclick',
+    'ip_device_os_nextclick',
+    'ip_channel_nextclick',
+    'ip_os_device_app_nextclick',
+    'ip_os_device_channel_app_nextclick',
+    'ip_os_device_channel_nextclick',
+    'ip_day_hour_var_channel',
+    'ip_day_hour_nunique_channel',
+    'ip_app_nunique_channel'
+    ] 
 
 
-if OPTION == 3:
-    # OPTION 3 - PREVIOUS RESULT
-    PREDICTORS = [
-        # 'ip', 
-        'app', 'device', 'os', 'channel', 'hour',
-        'ip_nunique_channel',   # X0
-        'ip_device_os_cumcount_app',
-        'ip_day_nunique_hour',
-        'ip_nunique_app',
-        'ip_app_nunique_os',
-        'ip_nunique_device',
-        'app_nunique_channel',
-        # 'ip_cumcount_os', # X6
-        'ip_device_os_nunique_app', # X8
-        'ip_os_device_app_nextclick',
-        'ip_day_hour_count_channel',
-        'ip_app_count_channel',
-        'ip_app_os_count_channel',
-        # 'ip_day_channel_var_hour', # miss
-        'ip_app_os_var_hour',
-        'ip_app_channel_var_day',
-        'ip_app_channel_mean_hour'
-        ]     
+PREDICTORS6 = [
+    # core 8
+    'app', 'os', 'channel', 'hour',
+    'mobile',
+    'ip_os_device_app_nextclick',
+    'ip_device_os_nunique_app',
+    'ip_nunique_channel',
 
-if OPTION == 4:
-    # OPTION 4 - RFE
-    PREDICTORS = ['ip', 'app', 'os', 'channel', 'hour',
-        'ip_os_device_app_nextclick',
-        'ip_day_hour_count_mobile_channel',
-        'ip_day_count_mobile',
-        'ip_day_hour_count_mobile_app',
-        'ip_day_count_mobile_app',
-        'ip_day_hour_count_mobile',
-        'ip_day_count_hour',
-        'ip_day_count_app',
-        'ip_app_channel_var_day',
-        'ip_mobile_day_std_hour',
-        'ip_day_hour_count_channel',
-        'ip_nunique_channel',
-        'ip_device_os_nunique_app',
-        'ip_app_nextclick'
-        ]  
+    # add 10
+    'ip_mobile_day_cumcount_hour',
+    'ip_var_os',
+    'ip_day_count_channel',
+    'ip_app_channel_day_cumcount_hour',
+    'ip_day_count_mobile_channel',
+    'ip_mobile_day_count_hour',
+    'ip_mobile_day_var_hour',
+    'ip_mobile_day_nunique_hour',
+    'ip_app_os_nunique_channel',
+    'ip_mobile_channel_day_cumcount_hour'
+    ] 
 
-if OPTION == 5:
-    # OPTION 4 - RFE
-    PREDICTORS = ['ip', 'app', 'os', 'channel', 'hour',
-        'device', 'mobile',
-        'ip_os_device_app_nextclick',
-        'ip_nextclick',
-        'ip_app_nextclick',
-        'ip_device_os_nextclick',
-        'ip_channel_nextclick',
-        'ip_os_device_app_nextclick',
-        'ip_os_device_channel_app_nextclick',
-        'ip_os_device_channel_nextclick',
-        'ip_day_hour_var_channel',
-        'ip_day_hour_nunique_channel',
-        'ip_app_nunique_channel'
-        ] 
+PREDICTORS7 = [
+    # core 8    
+    'app', 'os', 'channel', 'hour',
+    'mobile',
+    'ip_os_device_app_nextclick',
+    'ip_device_os_nunique_app',
+    'ip_nunique_channel',
 
-if OPTION == 6:
-    PREDICTORS = [
-        # core 9
-        'ip', 'app', 'os', 'channel', 'hour',
-        'mobile',
-        'ip_os_device_app_nextclick',
-        'ip_device_os_nunique_app',
-        'ip_nunique_channel',
+    # add 10
+    'ip_mobile_app_channel_day_count_hour',
+    'ip_mobile_channel_day_count_hour',
+    'ip_mobile_app_day_count_hour',
+    'ip_mobile_app_channel_day_cumcount_hour',
+    'ip_app_channel_day_count_hour',
+    'ip_mobile_app_day_cumcount_hour',
+    'ip_app_channel_day_std_hour',
+    'ip_app_channel_day_var_hour',
+    'ip_app_channel_day_nunique_hour',
+    'ip_app_os_var_hour',
+    ]         
 
-        # add 10
-        'ip_mobile_day_cumcount_hour',
-        'ip_var_os',
-        'ip_day_count_channel',
-        'ip_app_channel_day_cumcount_hour',
-        'ip_day_count_mobile_channel',
-        'ip_mobile_day_count_hour',
-        'ip_mobile_day_var_hour',
-        'ip_mobile_day_nunique_hour',
-        'ip_app_os_nunique_channel',
-        'ip_mobile_channel_day_cumcount_hour'
-        ] 
 
-if OPTION == 7:
-    PREDICTORS = [
-        # core 9
-        'ip', 'app', 'os', 'channel', 'hour',
-        'mobile',
-        'ip_os_device_app_nextclick',
-        'ip_device_os_nunique_app',
-        'ip_nunique_channel',
+PREDICTORS8 = [
+    # core 8
+    'app', 'os', 'channel', 'hour',
+    'mobile',
+    'ip_os_device_app_nextclick',
+    'ip_device_os_nunique_app',
+    'ip_nunique_channel',
 
-        # add 10
-        'ip_mobile_app_channel_day_count_hour',
-        'ip_mobile_channel_day_count_hour',
-        'ip_mobile_app_day_count_hour',
-        'ip_mobile_app_channel_day_cumcount_hour',
-        'ip_app_channel_day_count_hour',
-        'ip_mobile_app_day_cumcount_hour',
-        'ip_app_channel_day_std_hour',
-        'ip_app_channel_day_var_hour',
-        'ip_app_channel_day_nunique_hour',
-        'ip_app_os_var_hour',
+    # add 10
+    'ip_mobile_app_day_std_hour',
+    'ip_mobile_app_day_var_hour',
+    'ip_mobile_channel_day_nunique_hour',
+    'ip_mobile_app_day_nunique_hour',
+    'ip_mobile_channel_day_std_hour',
+    'ip_mobile_channel_day_var_hour',
+    'ip_mobile_app_channel_day_std_hour',
+    'ip_mobile_app_channel_day_var_hour',
+    'ip_mobile_app_channel_day_nunique_hour',
+    'ip_app_channel_var_day',
+    'ip_app_channel_mean_hour'
+    ]  
 
-        ]         
+PREDICTORS9 = [
+    # core 8
+    'app', 'os', 'channel', 'hour',
+    'mobile',
+    'ip_os_device_app_nextclick',
+    'ip_device_os_nunique_app',
+    'ip_nunique_channel',
 
+    # add 10
+    'app_confRate',
+    'channel_app_confRate',
+    'ip_app_confRate',
+    'ip_channel_confRate',
+    'channel_confRate',
+    'mobile_channel_confRate',
+    'ip_confRate',
+    'device_confRate',
+    'os_confRate'
+    ] 
 
 
 CATEGORICAL = [
@@ -196,8 +220,8 @@ def print_memory(print_string=''):
     print('Total memory in use ' + print_string + ': ', process.memory_info().rss/(2**30), ' GB')
 
 
-def get_predictors():
-    predictors = PREDICTORS
+def get_predictors(option):
+    if 
     print('------------------------------------------------')
     print('predictors:')
     for feature in predictors:
@@ -206,7 +230,6 @@ def get_predictors():
     return predictors 
 
 def get_categorical(predictors):
-    predictors = get_predictors()
     categorical = []
     for feature in predictors:
         if feature in CATEGORICAL:

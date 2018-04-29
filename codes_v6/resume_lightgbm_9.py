@@ -3,9 +3,9 @@ import matplotlib
 matplotlib.use('Agg')
 
 debug=0
-frac=1
+frac=0.5
 print('debug', debug)
-OPTION = 3
+OPTION = 9
 
 
 import pandas as pd
@@ -39,6 +39,7 @@ boosting_type = 'gbdt'
 # boosting_type = 'dart'
 
 
+
 frm = 1; to = 100
 
 TARGET = ['is_attributed']
@@ -69,18 +70,16 @@ if OPTION == 1:
 
 if OPTION == 3:
     # OPTION 3 - PREVIOUS RESULT
-    PREDICTORS = [
-        # 'ip', 
-        'app', 'device', 'os', 'channel', 'hour',
-        'ip_nunique_channel',   # X0
+    PREDICTORS = ['ip', 'app', 'device', 'os', 'channel', 'hour',
+        'ip_nunique_channel',
         'ip_device_os_cumcount_app',
         'ip_day_nunique_hour',
         'ip_nunique_app',
         'ip_app_nunique_os',
         'ip_nunique_device',
         'app_nunique_channel',
-        # 'ip_cumcount_os', # X6
-        'ip_device_os_nunique_app', # X8
+        'ip_cumcount_os',
+        'ip_device_os_nunique_app',
         'ip_os_device_app_nextclick',
         'ip_day_hour_count_channel',
         'ip_app_count_channel',
@@ -168,11 +167,52 @@ if OPTION == 7:
         'ip_app_channel_day_std_hour',
         'ip_app_channel_day_var_hour',
         'ip_app_channel_day_nunique_hour',
-        'ip_app_os_var_hour',
-
+        'ip_app_os_var_hour'
         ]         
 
+if OPTION == 8:
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel',
 
+        # add 10
+        'ip_mobile_app_day_std_hour',
+        'ip_mobile_app_day_var_hour',
+        'ip_mobile_channel_day_nunique_hour',
+        'ip_mobile_app_day_nunique_hour',
+        'ip_mobile_channel_day_std_hour',
+        'ip_mobile_channel_day_var_hour',
+        'ip_mobile_app_channel_day_std_hour',
+        'ip_mobile_app_channel_day_var_hour',
+        'ip_mobile_app_channel_day_nunique_hour',
+        'ip_app_channel_var_day',
+        'ip_app_channel_mean_hour'
+        ]  
+
+if OPTION == 9:
+    PREDICTORS = [
+        # core 9
+        'ip', 'app', 'os', 'channel', 'hour',
+        'mobile',
+        'ip_os_device_app_nextclick',
+        'ip_device_os_nunique_app',
+        'ip_nunique_channel',
+
+        # add 10
+        'app_confRate',
+        'channel_app_confRate',
+        'ip_app_confRate',
+        'ip_channel_confRate',
+        'channel_confRate',
+        'mobile_channel_confRate',
+        'ip_confRate',
+        'device_confRate',
+        'os_confRate'
+        ]  
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -449,8 +489,11 @@ def DO(frm,to,fileno,num_leaves,max_depth):
 # num_leaves_list = [7,9,11,13,15,31,31,9]
 # max_depth_list = [3,4,5,6,7,5,6,5]
 
-num_leaves_list = [7,9,15]
-max_depth_list = [3,4,7]
+# num_leaves_list = [7,9,15]
+# max_depth_list = [3,4,7]
+
+num_leaves_list = [7]
+max_depth_list = [3]
 
 for i in range(len(num_leaves_list)):
     print ('==============================================================')
