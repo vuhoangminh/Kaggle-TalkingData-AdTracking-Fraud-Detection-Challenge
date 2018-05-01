@@ -28,4 +28,5 @@ def kaggle_bag(glob_files, loc_outfile, method="average", weights="uniform"):
       outfile.write("%s,%f\n"%(k,math.pow(scores[(j,k)],1/(i+1))))
     print("wrote to {}".format(loc_outfile))
 
+print('>> doing ensemble geomean')	
 kaggle_bag(glob_files, loc_outfile)

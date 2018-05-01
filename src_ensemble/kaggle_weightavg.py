@@ -42,4 +42,5 @@ def kaggle_bag(glob_files, loc_outfile, method="average", weights="weighted"):
       outfile.write("%s,%f\n"%(k,scores[(j,k)]/(sum(weight_list))))
     print("wrote to {}".format(loc_outfile))
 
+print('>> doing ensemble weightavg')	
 kaggle_bag(glob_files, loc_outfile)

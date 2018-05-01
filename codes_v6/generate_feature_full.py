@@ -1,4 +1,4 @@
-debug=0
+debug=1
 print('debug', debug)
 
 import argparse
@@ -19,7 +19,6 @@ import featuretools as ft
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
-import configs
 import math
 import glob
 
@@ -81,6 +80,11 @@ DATATYPE_DICT = {
     'nextclick' : 'int64',
     'mean'      : 'float32'
     }
+
+if debug==1:
+    DATASET = 'day9'
+else:    
+    DATASET = 'full'
 
 if debug==1:
     PATH = '../debug_processed_day9/'        
@@ -336,6 +340,7 @@ def create_kernel_features(train_df):
     feature_name= generate_groupby_by_type_and_columns(train_df, selcols, apply_type)
     print_memory()
     new_feature_list.append(feature_name)
+
     return train_df
 
 ATTRIBUTION_CATEGORIES = [        
@@ -529,12 +534,19 @@ REPLICATE_LIST_NUNIQUE = [
     ['ip','day','hour','channel'],
     ['ip', 'app', 'channel'],
     ['ip','app', 'os', 'channel'],
+    ['ip', 'device', 'os', 'channel'],
+    ['channel', 'app'],
 ]
 
 REPLICATE_LIST_COUNT = [
     ['ip','day','hour','channel'],
     ['ip', 'app', 'channel'],
-    ['ip','app', 'os', 'channel']
+    ['ip','app', 'os', 'channel'],
+    ['ip','app'],
+    ['ip','app', 'os'],
+    ['ip','device'],
+    ['app', 'channel'],
+    ['channel', 'app'],
 ]
 
 REPLICATE_LIST_CUMCOUNT = [
@@ -779,6 +791,9 @@ def extend_df_with_cat(train_df):
 def main():
     train_df = read_train_test('is_merged')
     if debug: print(train_df.info())
+    # print('>> onehot encoder...')    
+    # print('------------------------------------------------------')     
+    # create_onehot_encoder(train_df)
     print('>> reading time...')    
     print('------------------------------------------------------') 
     create_time_call(train_df)

@@ -2,7 +2,7 @@ import matplotlib
 # Force matplotlib to not use any Xwindows backend.
 matplotlib.use('Agg')
 
-debug=1
+debug=0
 frac=0.5
 print('debug', debug)
 
@@ -144,6 +144,9 @@ PREDICTORS15 = [
 PREDICTORS16 = [
     # core 9
     'app', 'os', 'hour', 'device', 'channel', 'mobile',
+    'mobile_app',
+    'mobile_channel',
+    'app_channel',
     'ip_os_device_app_nextclick',
     'ip_device_os_nunique_app',
     'ip_nunique_channel',
@@ -161,11 +164,25 @@ PREDICTORS16 = [
     'ip_channel_nextclick',
     'ip_day_hour_count_channel',
     'ip_os_device_channel_nextclick',
-    'mobile_app',
-    'mobile_channel',
-    'app_channel'
+    'channel_count_app',
+    'ip_count_app',
+    'ip_app_count_os',
+    'ip_count_device',
+    'app_count_channel',
+    'ip_device_os_nunique_channel',
+    'channel_nunique_app',
+    'ip_day_channel_var_hour'
     ]
 
+NEW_FEATURE = [    
+    'channel_count_app',
+    'ip_count_app',
+    'ip_app_count_os',
+    'ip_count_device',
+    'app_count_channel',
+    'ip_device_os_nunique_channel',
+    'channel_nunique_app'
+    ]
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -240,7 +257,11 @@ def read_processed_h5(filename, predictors):
 
             if feature=='day' or feature=='hour' or feature=='min':
                 train_df[feature] = train_df[feature].fillna(0)
-                train_df[feature] = train_df[feature].astype('uint8')                                                              
+                train_df[feature] = train_df[feature].astype('uint8')   
+            if feature in NEW_FEATURE:
+                print('convert {} to uint32'.format(feature))
+                train_df[feature] = train_df[feature].fillna(0)
+                train_df[feature] = train_df[feature].astype('uint32')                                                                                              
             print_memory()
     t1 = time.time()
     total = t1-t0
@@ -348,7 +369,7 @@ def DO(num_leaves,max_depth, option):
                         num_boost_round=1000,                       
                         metrics='auc',
                         seed = SEED,
-                        # shuffle = True,
+                        shuffle = False,
                         # stratified=True, 
                         nfold=5, 
                         show_stdv=True,
@@ -398,7 +419,7 @@ def DO(num_leaves,max_depth, option):
 
 num_leaves_list = [16]
 max_depth_list = [-1]
-option_list = [3,10,11,15,16]
+option_list = [16, 15, 11, 10, 3]
 
 for option in option_list:
     for i in range(len(num_leaves_list)):

@@ -33,4 +33,5 @@ def kaggle_bag(glob_files, loc_outfile):
       outfile.write("%s,%s\n"%(k[1],k[2]))
     print("wrote to {}".format(loc_outfile))
 
+print('>> doing ensemble rankavg')		
 kaggle_bag(glob_files, loc_outfile)

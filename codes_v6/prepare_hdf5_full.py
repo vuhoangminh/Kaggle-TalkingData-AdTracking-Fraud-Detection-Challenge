@@ -33,7 +33,6 @@ import featuretools as ft
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
-import configs
 import math
 import glob
 
