@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 debug=0
-frac=0.5
+frac=0.2
 print('debug', debug)
 
 import pandas as pd
@@ -299,7 +299,7 @@ PREDICTORS13 = [
     # 'app_channel'
     ]
 
-# OPTION 14 - cat and some - 9783
+# OPTION 14 - cat and some
 PREDICTORS14 = [
     # core 9
     'app', 'os', 'channel', 'hour',
@@ -413,68 +413,7 @@ def get_categorical(predictors):
     for feature in categorical:
         print (feature)
     print('number of categorical features:', len(categorical))                        
-    return categorical            
-
-def lgb_modelfit_nocv(params, train_df_array, train_df_labels, val_df_array, val_df_labels, predictors, target='target', objective='binary', metrics='auc',
-                 feval=None, early_stopping_rounds=20, num_boost_round=3000, verbose_eval=10, categorical_features=None):
-    lgb_params = {
-        'boosting_type': boosting_type,
-        'objective': objective,
-        'metric':metrics,
-        'learning_rate': 0.2,
-        # 'drop_rate': 0.2, 
-        #'is_unbalance': 'true',  #because training data is unbalance (replaced with scale_pos_weight)
-        'num_leaves': 31,  # we should let it be smaller than 2^(max_depth)
-        'max_depth': -1,  # -1 means no limit
-        'min_child_samples': 20,  # Minimum number of data need in a child(min_data_in_leaf)
-        'max_bin': 255,  # Number of bucketed bin for feature values
-        'subsample': 0.6,  # Subsample ratio of the training instance.
-        'subsample_freq': 0,  # frequence of subsample, <=0 means no enable
-        'colsample_bytree': 0.3,  # Subsample ratio of columns when constructing each tree.
-        'min_child_weight': 5,  # Minimum sum of instance weight(hessian) needed in a child(leaf)
-        'subsample_for_bin': 200000,  # Number of samples for constructing bin
-        'min_split_gain': 0,  # lambda_l1, lambda_l2 and min_gain_to_split to regularization
-        'reg_alpha': 0,  # L1 regularization term on weights
-        'reg_lambda': 0,  # L2 regularization term on weights
-        'nthread': 4,
-        'verbose': 0,
-        'metric':metrics
-    }
-
-    lgb_params.update(params)
-    print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
-    print("preparing validation datasets")
-    
-    xgtrain = lgb.Dataset(train_df_array, label=train_df_labels,
-                          feature_name=predictors,
-                          categorical_feature=categorical_features
-                          )
-    xgvalid = lgb.Dataset(val_df_array, label=val_df_labels,
-                          feature_name=predictors,
-                          categorical_feature=categorical_features
-                          )
-
-    del train_df_array, train_df_labels, val_df_array, val_df_labels
-    gc.collect()
-    print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')                          
-
-    evals_results = {}
-
-    bst1 = lgb.train(lgb_params, 
-                     xgtrain, 
-                     valid_sets=[xgtrain, xgvalid], 
-                     valid_names=['train','valid'], 
-                     evals_result=evals_results, 
-                     num_boost_round=num_boost_round,
-                     early_stopping_rounds=early_stopping_rounds,
-                     verbose_eval=10, 
-                     feval=feval)
-
-    print("\nModel Report")
-    print("bst1.best_iteration: ", bst1.best_iteration)
-    print(metrics+":", evals_results['valid'][metrics][bst1.best_iteration-1])
-
-    return (bst1,bst1.best_iteration)
+    return categorical  
 
 
 def read_processed_h5(filename, predictors):
@@ -490,7 +429,7 @@ def read_processed_h5(filename, predictors):
                         start=0, stop=100) 
             if debug==1:
                 train_df[feature] = pd.read_hdf(filename, key=feature, 
-                        start=0, stop=10000000) 
+                        start=0, stop=10000000)                         
             if debug==0:
                 train_df[feature] = pd.read_hdf(filename, key=feature)   
 
@@ -506,17 +445,14 @@ def read_processed_h5(filename, predictors):
 
 
 def DO(num_leaves,max_depth, option):
-
     print('------------------------------------------------')
     print('start...')
     print('fraction:', frac)
     print('prepare predictors, categorical and target...')
     predictors = get_predictors(option)
     categorical = get_categorical(predictors)
-    print('categorical', categorical)
     target = TARGET
-    print('taget', target)
-
+   
 
     if debug==0:
         print('=======================================================================')
@@ -531,45 +467,41 @@ def DO(num_leaves,max_depth, option):
         print('for LIGHT TEST only...')
         print('=======================================================================')
         print('reading train')
-    print('predictors', predictors)
-    print('categorical', categorical)
-    print('target', target)
-    print('option:', option)
-    print('=======================================================================')
-    train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-
-    train_df = train_df.sample(frac=frac, random_state = SEED)
-    print_memory('afer reading train')
-    # train_df = drop_features(train_df)
-    # print_memory('afer drop unused features')
-    train_df, val_df = train_test_split(train_df, test_size=0.33, random_state=SEED)
-    print(train_df.head())
-    print_memory('afer split')
-    print("train size: ", len(train_df))
-    print("valid size: ", len(val_df))
-
-    gc.collect()
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option)
 
+    print('----------------------------------------------------------')
+    print('SUMMARY:')
+    print('----------------------------------------------------------')
+    print('predictors:',predictors)
+    print('taget', target)
+    print('categorical', categorical)
     print('submission file name:', subfilename)
     print('model file name:', modelfilename)
     print('fraction:', frac)
+    print('option:', option)
 
+    print('----------------------------------------------------------')
+    train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
+    train_df = train_df.sample(frac=frac, random_state = SEED)
+    print_memory('afer reading train:')
+    print(train_df.head())
+    print("train size: ", len(train_df))
+    gc.collect()
+
+    print('----------------------------------------------------------')
+    print("Training...")
     start_time = time.time()
 
     params = {
         'learning_rate': 0.2,
-        #'is_unbalance': 'true', # replaced with scale_pos_weight argument
         'num_leaves': num_leaves,  # 2^max_depth - 1
         'max_depth': max_depth,  # -1 means no limit
-        # 'num_leaves': 9,  # 2^max_depth - 1
-        # 'max_depth': 5,  # -1 means no limit
         'min_child_samples': 100,  # Minimum number of data need in a child(min_data_in_leaf)
         'max_bin': 100,  # Number of bucketed bin for feature values
         'subsample': 0.7,  # Subsample ratio of the training instance.
@@ -578,56 +510,57 @@ def DO(num_leaves,max_depth, option):
         'min_child_weight': 0,  # Minimum sum of instance weight(hessian) needed in a child(leaf)
         'scale_pos_weight':200 # because training data is extremely unbalanced 
     }
+
     print (params)
 
     print('>> cleaning train...')
     train_df_array = train_df[predictors].values
     train_df_labels = train_df[target].values.astype('int').flatten()
     del train_df; gc.collect()
-    print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
-    print('>> cleaning val...')
-    val_df_array = val_df[predictors].values
-    val_df_labels = val_df[target].values.astype('int').flatten()
-    del val_df; gc.collect()
-    print('Total memory in use: ', process.memory_info().rss/(2**30), ' GB\n')
+    print_memory()
 
-    print('--------------------------------------------------------------------') 
-    print(">> Training...")
-    (bst,best_iteration) = lgb_modelfit_nocv(params, 
-                            train_df_array, 
-                            train_df_labels,
-                            val_df_array, 
-                            val_df_labels,
-                            predictors, 
-                            target, 
-                            objective='binary', 
-                            metrics='auc',
-                            early_stopping_rounds=30, 
-                            verbose_eval=True, 
-                            num_boost_round=1000, 
-                            categorical_features=categorical)
+    print('>> prepare dataset...')
+    dtrain_lgb = lgb.Dataset(train_df_array, label=train_df_labels,
+                        feature_name=predictors,
+                        categorical_feature=categorical)
+    del train_df_array, train_df_labels; gc.collect()                        
+    print_memory()                        
+    
+    print('>> start cv...')
+    cv_results  = lgb.cv(params, 
+                        dtrain_lgb, 
+                        categorical_feature = categorical,
+                        num_boost_round=1000,                       
+                        metrics='auc',
+                        seed = SEED,
+                        # shuffle = True,
+                        stratified=True, 
+                        nfold=5, 
+                        show_stdv=True,
+                        early_stopping_rounds=30, 
+                        verbose_eval=True)                     
 
-    print('--------------------------------------------------------------------')                            
-    print('Feature importances:', list(bst.feature_importance()))              
 
     print('[{}]: model training time'.format(time.time() - start_time))
-    del train_df_array, train_df_labels, val_df_array, val_df_labels
+    print('Total memory in use after cv training: ', process.memory_info().rss/(2**30), ' GB\n')
+
+    print (cv_results)
+    num_boost_rounds_lgb = len(cv_results['auc-mean'])
+    print('num_boost_rounds_lgb=' + str(num_boost_rounds_lgb))
+
+    print ('train model...')
+    model_lgb = lgb.train(
+                        params, dtrain_lgb, 
+                        num_boost_round=num_boost_rounds_lgb,
+                        feature_name = predictors,
+                        categorical_feature = categorical)
+    del dtrain_lgb
     gc.collect()
 
     print('--------------------------------------------------------------------') 
     print('>> Save model...')
     # save model to file
-    bst.save_model(modelfilename+'.txt')
-
-    # print('--------------------------------------------------------------------') 
-    # print('>> Plot feature importances...')
-    # lgb.plot_importance(bst)
-    # fig=plt.gcf()
-    # fig.set_size_inches(50,50)
-    # savename = modelfilename + '.png'
-    # plt.savefig(savename)
-    # print('done')     
-
+    model_lgb.save_model(modelfilename+'.txt')
 
     print('--------------------------------------------------------------------') 
     print('reading test')
@@ -639,21 +572,16 @@ def DO(num_leaves,max_depth, option):
     sub['click_id'] = test_df['click_id'].astype('int')
 
     print(">> Predicting...")
-    sub['is_attributed'] = bst.predict(test_df[predictors],num_iteration=best_iteration)
+    sub['is_attributed'] = model_lgb.predict(test_df[predictors])
     # if not debug:
     print("writing...")
     sub.to_csv(subfilename,index=False,compression='gzip')
     print("done...")
     return sub
 
-# num_leaves_list = [7,9,11,13,15,31,31,9]
-# max_depth_list = [3,4,5,6,7,5,6,5]
-
-# num_leaves_list = [31]
-# max_depth_list = [5]
-num_leaves_list = [11]
-max_depth_list = [5]
-option_list = [13,14,15]
+num_leaves_list = [7]
+max_depth_list = [3]
+option_list = [3,10,11,14,15]
 
 for option in option_list:
     for i in range(len(num_leaves_list)):
@@ -665,7 +593,7 @@ for option in option_list:
         if debug: print ('option:', option)
         predictors = get_predictors(option)
         subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_' + boosting_type + '_minh_hope_' + str(int(100*frac)) + \
+                'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
                 'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
         if debug: print (subfilename)                
         if os.path.isfile(subfilename):
