@@ -104,6 +104,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 
 
+
 path = '../input/'
 dtypes = {
         'ip'            : 'uint32',
@@ -118,6 +119,7 @@ print('load train....')
 train_set_name = 'train_0'
 train_df = pd.read_pickle(train_set_name)
 
+# train_df = train_df.sample(frac=0.01)
 
 print('load test....')
 test_set_name = 'test_0'
@@ -159,21 +161,30 @@ def get_keras_data(dataset):
     return X
 train_df = get_keras_data(train_df)
 
-predictors =  ['app', 'channel', 'device', 'os', 'hour', 'day', 'wday', 'qty', 'ip_app_count', 'ip_app_os_count']
-
 emb_n = 50
 dense_n = 1000
-embids = predictors
-# get the max of each code type
-embmaxs = dict((col, np.max([train_df[col].max(), test_df[col].max()])+1) for col in embids)
-def get_keras_data(dataset):
-    X = dict((col, np.array(dataset[col])) for col in embids)
-    return X
-# Build the inputs, embeddings and concatenate them all for each column
-emb_inputs = dict((col, Input(shape=[1], name = col))  for col in embids)
-emb_model  = dict((col, Embedding(embmaxs[col], emb_n)(emb_inputs[col])) for col in embids)
-fe = concatenate([(emb_) for emb_ in emb_model.values()])
-# Rest of the model
+in_app = Input(shape=[1], name = 'app')
+emb_app = Embedding(max_app, emb_n)(in_app)
+in_ch = Input(shape=[1], name = 'ch')
+emb_ch = Embedding(max_ch, emb_n)(in_ch)
+in_dev = Input(shape=[1], name = 'dev')
+emb_dev = Embedding(max_dev, emb_n)(in_dev)
+in_os = Input(shape=[1], name = 'os')
+emb_os = Embedding(max_os, emb_n)(in_os)
+in_h = Input(shape=[1], name = 'h')
+emb_h = Embedding(max_h, emb_n)(in_h) 
+in_d = Input(shape=[1], name = 'd')
+emb_d = Embedding(max_d, emb_n)(in_d) 
+in_wd = Input(shape=[1], name = 'wd')
+emb_wd = Embedding(max_wd, emb_n)(in_wd) 
+in_qty = Input(shape=[1], name = 'qty')
+emb_qty = Embedding(max_qty, emb_n)(in_qty) 
+in_c1 = Input(shape=[1], name = 'c1')
+emb_c1 = Embedding(max_c1, emb_n)(in_c1) 
+in_c2 = Input(shape=[1], name = 'c2')
+emb_c2 = Embedding(max_c2, emb_n)(in_c2) 
+fe = concatenate([(emb_app), (emb_ch), (emb_dev), (emb_os), (emb_h), 
+                 (emb_d), (emb_wd), (emb_qty), (emb_c1), (emb_c2)])
 s_dout = SpatialDropout1D(0.2)(fe)
 fl1 = Flatten()(s_dout)
 conv = Conv1D(100, kernel_size=4, strides=1, padding='same')(s_dout)
@@ -182,9 +193,7 @@ concat = concatenate([(fl1), (fl2)])
 x = Dropout(0.2)(Dense(dense_n,activation='relu')(concat))
 x = Dropout(0.2)(Dense(dense_n,activation='relu')(x))
 outp = Dense(1,activation='sigmoid')(x)
-model = Model(inputs=[inp for inp in emb_inputs.values()], outputs=outp)
-
-
+model = Model(inputs=[in_app,in_ch,in_dev,in_os,in_h,in_d,in_wd,in_qty,in_c1,in_c2], outputs=outp)
 
 batch_size = 2048*64
 epochs = 100

@@ -1,8 +1,14 @@
 debug = 0
-frac = 0.01
+frac = 0.5
 
 import pandas as pd
 import numpy as np
+
+import keras
+import tensorflow as tf
+config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 4} ) 
+sess = tf.Session(config=config) 
+keras.backend.set_session(sess)
 
 
 from keras.layers.normalization import BatchNormalization
@@ -16,7 +22,6 @@ from keras.callbacks import CSVLogger, ModelCheckpoint
 from sklearn.cross_validation import train_test_split
 import h5py
 import os, time
-import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
 from sklearn import datasets, linear_model
 from sklearn.model_selection import cross_val_score, KFold
@@ -36,6 +41,17 @@ if debug:
 else:    
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+
+now = datetime.datetime.now()
+if now.month<10:
+    month_string = '0'+str(now.month)
+else:
+    month_string = str(now.month)
+if now.day<10:
+    day_string = '0'+str(now.day)
+else:
+    day_string = str(now.day)
+yearmonthdate_string = str(now.year) + month_string + day_string
 
 SEED = 1988
 process = psutil.Process(os.getpid())
@@ -155,7 +171,6 @@ def read_processed_h5(filename, predictors):
 
 #build model
 
-
 # 2 layers
 print('>> prepare predictors...')
 predictors = get_predictors()
@@ -185,25 +200,10 @@ traintest_cat = pd.DataFrame(traintest_cat, columns=categorical)
 print(traintest_cat.shape)
 print_memory()
 
-print ('>> onehot encoder')
-ohe = OneHotEncoder(sparse=True)
-ohe.fit(traintest_cat)
-train_ohe = ohe.transform(train_cat).toarray()
-test_ohe = ohe.transform(test_cat).toarray()
-print_memory()
-
-print('before encode')
-print(traintest_cat.head())
-print('after encode')
-print(train_ohe.shape)
-del traintest_cat, train_cat, test_cat; gc.collect()
-print_memory()
-
-print('>> drop cat')
-train_df = train_df.drop(categorical, axis=1)
-print(train_df)
-test_df = test_df.drop(categorical, axis=1)
-print('after drop')
+print ('>> label encoder')
+from sklearn.preprocessing import LabelEncoder
+train_df[categorical].apply(LabelEncoder().fit_transform)
+test_df[categorical].apply(LabelEncoder().fit_transform)
 print('train:', train_df.head())
 print('test:', test_df.head())
 print_memory()
@@ -211,18 +211,18 @@ print_memory()
 print('>> prepare dataset...')
 train_df = train_df.as_matrix()
 test_df = test_df.as_matrix()
-
-train_list = np.concatenate((train_df, train_ohe), axis=1)
-test_list = np.concatenate((test_df, test_ohe), axis=1)
-del train_df, train_ohe, test_df, test_ohe; gc.collect()
+train_list = train_df
+test_list = test_df
+del train_df, test_df; gc.collect()
 if debug: print(train_list); print(test_list)
+print_memory()
 
 print('>> scale standard')
 scaler = StandardScaler()
 scaler.fit(np.concatenate((train_list, test_list), axis=0))
-
 train_list = scaler.transform(train_list)
 test_list = scaler.transform(test_list)
+print_memory()
 
 X = train_list
 del train_list; gc.collect
@@ -258,7 +258,7 @@ def baseline_model():
     model.add(Dropout(0.8))
 
     model.add(Dense(1, init='he_normal', activation='sigmoid'))
-    model.compile(loss='binary_crossentropy', optimizer='adam')
+    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy'])
     return (model)
 
 
@@ -269,51 +269,41 @@ kfold = StratifiedKFold(n_splits=NFOLDS, shuffle=True, random_state=218)
 
 cv_train = np.zeros(len(train_label))
 cv_pred = np.zeros(len(test_id))
-
+num_seeds = 2
 print('=========================================================================')
 print('>> start training')
-for s in range(5):
+for s in range(num_seeds):
     np.random.seed(s)
     print('--------------------------------------------------------')
     print('seed', s)
     print('--------------------------------------------------------')
     for (inTr, inTe) in kfold.split(X, train_label):
+        print('>> split')
         xtr = X[inTr]
         ytr = train_label[inTr]
         xte = X[inTe]
         yte = train_label[inTe]
 
+        print('>> fitting...')
         model = baseline_model()
-        model.fit(xtr, ytr, epochs=35, batch_size=512, verbose=2, validation_data=[xte, yte])
-        cv_train[inTe] += model.predict_proba(x=xte, batch_size=512, verbose=0)[:, 0]
-        cv_pred += model.predict_proba(x=X_test, batch_size=512, verbose=0)[:, 0]
-    
+        model.fit(xtr, ytr, epochs=21, batch_size=2048*64, verbose=1, validation_data=[xte, yte])
+        print('>> valid...')
+        cv_train[inTe] += model.predict_proba(x=xte, batch_size=2048, verbose=1)[:, 0]
+        print('>> predict...')
+        cv_pred += model.predict_proba(x=X_test, batch_size=2048, verbose=1)[:, 0]
     print(s)
     print(roc_auc_score(train_label, cv_train))
 
 
+print('--------------------------------------------------------------------') 
+sub = pd.DataFrame()
+sub['click_id'] = test_id
+subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
+            'features_dl_cv_' + str(int(100*frac)) + \
+            'percent_full.csv.gz'
 
-    # print(str(datetime.timedelta(seconds=time() - begintime)))
-
-# xtr = X[inTr]
-# ytr = train_label[inTr]
-# xte = X[inTe]
-# yte = train_label[inTe]
-
-# model = nn_model()
-# model.fit(xtr, ytr, epochs=35, batch_size=512, verbose=2, validation_data=[xte, yte])
-# cv_train[inTe] += model.predict_proba(x=xte, batch_size=512, verbose=0)[:, 0]
-# cv_pred += model.predict_proba(x=X_test, batch_size=512, verbose=0)[:, 0]
-
-
-# X = train_df[predictors]
-# y = train_df[target]
-# estimator = KerasRegressor(build_fn=baseline_model, nb_epoch=100, 
-#         batch_size=100, verbose=2)
-# kfold = KFold(n_splits=10, random_state=SEED)
-# results = cross_val_score(estimator, X, y, cv=kfold)
-# print("Results: %.2f (%.2f) MSE" % (results.mean(), results.std()))
-
-# estimator.fit(X, y)
-# prediction = estimator.predict(X)
-# # accuracy_score(y, prediction)
+print(">> Predicting...")
+sub['is_attributed'] = cv_pred * 1./ (NFOLDS * num_seeds)
+print("writing...")
+sub.to_csv(subfilename,index=False,compression='gzip')
+print("done...")

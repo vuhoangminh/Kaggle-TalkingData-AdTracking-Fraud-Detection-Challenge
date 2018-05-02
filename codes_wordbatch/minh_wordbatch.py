@@ -1,5 +1,7 @@
 import sys
 
+# sys.path.insert(0, '../input/wordbatch-133/wordbatch/')
+# sys.path.insert(0, '../input/randomstate/randomstate/')
 sys.path.insert(0, '../input')
 
 import wordbatch
@@ -12,7 +14,9 @@ from sklearn.metrics import roc_auc_score
 import time
 import numpy as np
 import gc
+import seaborn as sns
 from contextlib import contextmanager
+import matplotlib.pyplot as plt
 @contextmanager
 def timer(name):
 	t0 = time.time()
@@ -43,11 +47,18 @@ def evaluate_batch(clf, X, y, rcount):
 	print(rcount, "ROC AUC:", auc, "Running Mean:", mean_auc)
 	return auc
 
-def df_add_counts(df, cols):
+def df_add_counts(df, cols, tag="_count"):
 	arr_slice = df[cols].values
 	unq, unqtags, counts = np.unique(np.ravel_multi_index(arr_slice.T, arr_slice.max(0) + 1),
 									 return_inverse=True, return_counts=True)
-	df["_".join(cols)+'_count'] = counts[unqtags]
+	df["_".join(cols)+tag] = counts[unqtags]
+	return df
+
+def df_add_uniques(df, cols, tag="_unique"):
+	gp = df[cols].groupby(by=cols[0:len(cols) - 1])[cols[len(cols) - 1]].nunique().reset_index(). \
+		rename(index=str, columns={cols[len(cols) - 1]: "_".join(cols)+tag})
+	df= df.merge(gp, on=cols[0:len(cols) - 1], how='left')
+	return df
 
 def df2csr(wb, df, pick_hours=None):
 	df.reset_index(drop=True, inplace=True)
@@ -57,28 +68,118 @@ def df2csr(wb, df, pick_hours=None):
 		df['day'] = dt.day.astype('uint8')
 		df['hour'] = dt.hour.astype('uint8')
 		del(dt)
-		df_add_counts(df, ['ip', 'day', 'hour'])
-		df_add_counts(df, ['ip', 'app'])
-		df_add_counts(df, ['ip', 'app', 'os'])
-		df_add_counts(df, ['ip', 'device'])
-		df_add_counts(df, ['app', 'channel'])
-		#cpuStats()
+		df= df_add_counts(df, ['ip', 'day', 'hour'])
+		df= df_add_counts(df, ['ip', 'app'])
+		df= df_add_counts(df, ['ip', 'app', 'os'])
+		df= df_add_counts(df, ['ip', 'device'])
+		df= df_add_counts(df, ['app', 'channel'])
+		df= df_add_uniques(df, ['ip', 'channel'])
 
-	with timer("Adding next click times"):
-		D= 2**26
-		df['category'] = (df['ip'].astype(str) + "_" + df['app'].astype(str) + "_" + df['device'].astype(str) \
-						 + "_" + df['os'].astype(str)).apply(hash) % D
+	with timer('Generate next click'):
+		D=2**26
+		df['category'] = (df['ip'].astype(str) + "_" + df['app'].astype(str) + "_" + df['device'].astype(str) + "_" + df['os'].astype(str)).apply(hash) % D
 		click_buffer= np.full(D, 3000000000, dtype=np.uint32)
+
 		df['epochtime']= df['click_time'].astype(np.int64) // 10 ** 9
 		next_clicks= []
-		for category, time in zip(reversed(df['category'].values), reversed(df['epochtime'].values)):
-			next_clicks.append(click_buffer[category]-time)
-			click_buffer[category]= time
+		for category, t in zip(reversed(df['category'].values), reversed(df['epochtime'].values)):
+			next_clicks.append(click_buffer[category]-t)
+			click_buffer[category]= t
 		del(click_buffer)
-		df['next_click']= list(reversed(next_clicks))
+		QQ= list(reversed(next_clicks))
 
-	for fea in ['ip_day_hour_count','ip_app_count','ip_app_os_count','ip_device_count',
-				'app_channel_count','next_click']:  df[fea]= np.log2(1 + df[fea].values).astype(int)
+		df['nextClick'] = QQ
+		df['nextClick_shift'] = pd.DataFrame(QQ).shift(+1).values
+		del QQ
+	with timer("Log-binning features"):
+		for fea in ['ip_day_hour_count','ip_app_count','ip_app_os_count','ip_device_count',
+				'app_channel_count','nextClick','ip_channel_unique']: 
+				    df[fea]= np.log2(1 + df[fea].values).astype(int)
+
+	with timer('Generate X0-8 features'):
+		naddfeat=9
+		for i in range(0,naddfeat):
+			if i==0: selcols=['ip', 'channel']; QQ=4;
+			if i==1: selcols=['ip', 'device', 'os', 'app']; QQ=5;
+			if i==2: selcols=['ip', 'day', 'hour']; QQ=4;
+			if i==3: selcols=['ip', 'app']; QQ=4;
+			if i==4: selcols=['ip', 'app', 'os']; QQ=4;
+			if i==5: selcols=['ip', 'device']; QQ=4;
+			if i==6: selcols=['app', 'channel']; QQ=4;
+			if i==7: selcols=['ip', 'os']; QQ=5;
+			if i==8: selcols=['ip', 'device', 'os', 'app']; QQ=4;
+			print('selcols',selcols,'QQ',QQ)
+						
+			if QQ==0:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].count().reset_index().\
+					rename(index=str, columns={selcols[len(selcols)-1]: 'X'+str(i)})
+				df = df.merge(gp, on=selcols[0:len(selcols)-1], how='left')
+			if QQ==1:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].mean().reset_index().\
+					rename(index=str, columns={selcols[len(selcols)-1]: 'X'+str(i)})
+				df = df.merge(gp, on=selcols[0:len(selcols)-1], how='left')
+			if QQ==2:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].var().reset_index().\
+					rename(index=str, columns={selcols[len(selcols)-1]: 'X'+str(i)})
+				df = df.merge(gp, on=selcols[0:len(selcols)-1], how='left')
+			if QQ==3:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].skew().reset_index().\
+					rename(index=str, columns={selcols[len(selcols)-1]: 'X'+str(i)})
+				df = df.merge(gp, on=selcols[0:len(selcols)-1], how='left')
+			if QQ==4:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].nunique().reset_index().\
+					rename(index=str, columns={selcols[len(selcols)-1]: 'X'+str(i)})
+				df = df.merge(gp, on=selcols[0:len(selcols)-1], how='left')
+			if QQ==5:
+				gp = df[selcols].groupby(by=selcols[0:len(selcols)-1])[selcols[len(selcols)-1]].cumcount()
+				df['X'+str(i)]=gp.values
+			del gp
+	
+	# with timer('Generate combination features'):
+		
+	# 	print('grouping by ip-day-hour combination...')
+	# 	gp = df[['ip','day','hour','channel']].groupby(by=['ip','day','hour'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_tcount2'})
+	# 	df = df.merge(gp, on=['ip','day','hour'], how='left')
+	# 	del gp
+
+	# 	print('grouping by ip-app combination...')
+	# 	gp = df[['ip', 'app', 'channel']].groupby(by=['ip', 'app'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_app_count2'})
+	# 	df = df.merge(gp, on=['ip','app'], how='left')
+	# 	del gp
+
+	# 	print('grouping by ip-app-os combination...')
+	# 	gp = df[['ip','app', 'os', 'channel']].groupby(by=['ip', 'app', 'os'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_app_os_count2'})
+	# 	df = df.merge(gp, on=['ip','app', 'os'], how='left')
+	# 	del gp
+
+	# 	# Adding features with var and mean hour (inspired from nuhsikander's script)
+	# 	print('grouping by ip_day_chl_var_hour')
+	# 	gp = df[['ip','day','hour','channel']].groupby(by=['ip','day','channel'])[['hour']].var().reset_index().rename(index=str, columns={'hour': 'ip_tchan_count2'})
+	# 	df = df.merge(gp, on=['ip','day','channel'], how='left')
+	# 	del gp
+
+	# 	print('grouping by ip_app_os_var_hour')
+	# 	gp = df[['ip','app', 'os', 'hour']].groupby(by=['ip', 'app', 'os'])[['hour']].var().reset_index().rename(index=str, columns={'hour': 'ip_app_os_var2'})
+	# 	df = df.merge(gp, on=['ip','app', 'os'], how='left')
+	# 	del gp
+
+	# 	print('grouping by ip_app_channel_var_day')
+	# 	gp = df[['ip','app', 'channel', 'day']].groupby(by=['ip', 'app', 'channel'])[['day']].var().reset_index().rename(index=str, columns={'day': 'ip_app_channel_var_day2'})
+	# 	df = df.merge(gp, on=['ip','app', 'channel'], how='left')
+	# 	del gp
+
+	# 	print('grouping by ip_app_chl_mean_hour')
+	# 	gp = df[['ip','app', 'channel','hour']].groupby(by=['ip', 'app', 'channel'])[['hour']].mean().reset_index().rename(index=str, columns={'hour': 'ip_app_channel_mean_hour2'})
+	# 	print("merging...")
+	# 	df = df.merge(gp, on=['ip','app', 'channel'], how='left')
+	# 	del gp
+
+	# 	print("vars and data type: ")
+	# 	df['ip_tcount2'] = df['ip_tcount2'].astype('uint16')
+	# 	df['ip_app_count2'] = df['ip_app_count2'].astype('uint16')
+	# 	df['ip_app_os_count2'] = df['ip_app_os_count2'].astype('uint16')
+	
+	df = df.fillna(0)
 
 	with timer("Generating str_array"):
 		str_array= ("I" + df['ip'].astype(str) \
@@ -98,9 +199,28 @@ def df2csr(wb, df, pick_hours=None):
 			+ " AOC" + df['ip_app_os_count'].astype(str) \
 			+ " IDC" + df['ip_device_count'].astype(str) \
 			+ " AC" + df['app_channel_count'].astype(str) \
-			+ " NC" + df['next_click'].astype(str)
+			+ " NC" + df['nextClick'].astype(str) \
+			+ " NCS" + df['nextClick_shift'].astype(str) \
+			+ " ICU" + df['ip_channel_unique'].astype(str) \
+			+ " XZ" + df['X0'].astype(str) \
+			+ " XO" + df['X1'].astype(str) \
+			+ " XT" + df['X2'].astype(str) \
+			+ " XH" + df['X3'].astype(str) \
+			+ " XF" + df['X4'].astype(str) \
+			+ " XI" + df['X5'].astype(str) \
+			+ " XS" + df['X6'].astype(str) \
+			+ " XV" + df['X7'].astype(str) \
+			+ " XE" + df['X8'].astype(str) 
+			# + " IDHN" + df['ip_tcount2'].astype(str) \
+			# + " IACN" + df['ip_app_count2'].astype(str) \
+			# + " IAOC" + df['ip_app_os_count2'].astype(str) \
+			# + " IDCH" + df['ip_tchan_count2'].astype(str) \
+			# + " IAOV" + df['ip_app_os_var2'].astype(str) \
+			# + " IACVD" + df['ip_app_channel_var_day2'].astype(str) \
+			# + " IACMH" + df['ip_app_channel_mean_hour2'].astype(str)
 		  ).values
 	#cpuStats()
+
 	if 'is_attributed' in df.columns:
 		labels = df['is_attributed'].values
 		weights = np.multiply([1.0 if x == 1 else 0.2 for x in df['is_attributed'].values],
@@ -121,6 +241,8 @@ class ThreadWithReturnValue(threading.Thread):
 		threading.Thread.join(self)
 		return self._return
 
+print('--------------------------------------------------------------')
+print('>> init...')
 batchsize = 10000000
 D = 2 ** 20
 
@@ -129,7 +251,7 @@ wb = wordbatch.WordBatch(None, extractor=(WordHash, {"ngram_range": (1, 1), "ana
 													 "norm": None, "binary": True})
 						 , minibatch_size=batchsize // 80, procs=8, freeze=True, timeout=1800, verbose=0)
 clf = FM_FTRL(alpha=0.05, beta=0.1, L1=0.0, L2=0.0, D=D, alpha_fm=0.02, L2_fm=0.0, init_fm=0.01, weight_fm=1.0,
-			  D_fm=8, e_noise=0.0, iters=3, inv_link="sigmoid", e_clip=1.0, threads=4, use_avx=1, verbose=0)
+			  D_fm=8, e_noise=0.0, iters=2, inv_link="sigmoid", e_clip=1.0, threads=4, use_avx=1, verbose=0)
 
 dtypes = {
 		'ip'            : 'uint32',
@@ -143,16 +265,27 @@ dtypes = {
 p = None
 rcount = 0
 # for df_c in pd.read_csv('../input/talkingdata-adtracking-fraud-detection/train.csv', engine='c', chunksize=batchsize,
-for df_c in pd.read_csv('../input/train.csv', engine='c', chunksize=batchsize,
-						sep=",", dtype=dtypes):
+for df_c in pd.read_csv('../input/train.csv', engine='c', chunksize=batchsize, 
+						# skiprows= range(1,9308569), sep=",", dtype=dtypes):
+						skiprows= range(1,170000000), sep=",", dtype=dtypes):
 	rcount += batchsize
-	#cpuStats()
+	print('--------------------------------------------------------------')
+	print('>> read and convert...')
+	if rcount== 130000000:
+		df_c['click_time'] = pd.to_datetime(df_c['click_time'])
+		df_c['day'] = df_c['click_time'].dt.day.astype('uint8')
+		df_c= df_c[df_c['day']==8]
+
+	print('--------------------------------------------------------------')
+	print('>> start wordbatch...')		
 	str_array, labels, weights= df2csr(wb, df_c, pick_hours={4, 5, 10, 13, 14})
 	del(df_c)
 	if p != None:
 		p.join()
 		del(X)
 	gc.collect()
+	print('--------------------------------------------------------------')
+	print('>> transform...')	
 	X= wb.transform(str_array)
 	del(str_array)
 	if rcount % (2 * batchsize) == 0:
@@ -164,8 +297,11 @@ for df_c in pd.read_csv('../input/train.csv', engine='c', chunksize=batchsize,
 	if p != None:  p.join()
 	p = threading.Thread(target=fit_batch, args=(clf, X, labels, weights))
 	p.start()
+	if rcount == 130000000:  break
 if p != None:  p.join()
 
+print('--------------------------------------------------------------')
+print('>> predict...')	
 del(X)
 p = None
 click_ids= []
@@ -190,5 +326,8 @@ for df_c in pd.read_csv('../input/test.csv', engine='c', chunksize=batchsize,
 	p.start()
 if p != None:  test_preds += list(p.join())
 
+print('--------------------------------------------------------------')
+print('>> write...')	
 df_sub = pd.DataFrame({"click_id": click_ids, 'is_attributed': test_preds})
-df_sub.to_csv("wordbatch_fm_ftrl.csv", index=False)
+df_sub.to_csv("wordbatch_minh.csv", index=False)
+print('done...')	
