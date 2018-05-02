@@ -75,21 +75,10 @@ PREDICTORS3 = [
     'ip_app_channel_mean_hour'
     ]     
 
-# OPTION 10 - CORE
-PREDICTORS10 = [
-    # core 10
-    'app', 'os', 'channel', 'hour',
-    'mobile', 'device',
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app'
-    ]
-
 # OPTION 11
 PREDICTORS11 = [
     # core 10
-    'app', 'os', 'channel', 'hour', 'device',
+    'app', 'os', 'channel', 'device', 'hour',
     'ip_os_device_app_nextclick',
     'ip_device_os_nunique_app',
     'ip_nunique_channel',
@@ -107,7 +96,7 @@ PREDICTORS11 = [
 # OPTION 15 - remove some cat to avoid overfitting?
 PREDICTORS15 = [
     # core 9
-    'app', 'os', 'hour', 'device', 
+    'app', 'os', 'device', 'hour',
     'ip_os_device_app_nextclick',
     'ip_device_os_nunique_app',
     'ip_nunique_channel',
@@ -125,7 +114,7 @@ PREDICTORS15 = [
 # OPTION 17 - remove some cat to avoid overfitting?
 PREDICTORS17 = [
     # core 9
-    'channel', 'app', 'os', 'hour', 'device', 
+    'channel', 'app', 'os', 'device', 'hour',
     'ip_os_device_app_nextclick',
     'ip_device_os_nunique_app',
     'ip_nunique_channel',
@@ -136,20 +125,20 @@ PREDICTORS17 = [
     'ip_cumcount_os',
     'app_nunique_channel',
     'ip_device_os_nextclick',
-    # 'ip_nextclick',
+    'ip_nextclick',
     'ip_os_device_channel_app_nextclick',
-    # 'ip_count_app',
-    # 'ip_app_count_os',
-    # 'channel_nunique_app',
-    # 'ip_count_device',
+    'ip_count_app',
+    'ip_app_count_os',
+    'channel_nunique_app',
+    'ip_count_device',
     'app_count_channel',
-    # 'ip_device_os_nunique_channel'
+    'ip_device_os_nunique_channel'
     ]
 
 # OPTION 16 - for testing
 PREDICTORS16 = [
     # core 9
-    'app', 'os', 'hour', 'device', 'channel', 'mobile',
+    'app', 'os', 'device', 'channel', 'mobile', 'hour',
     'mobile_app',
     'mobile_channel',
     'app_channel',
@@ -199,8 +188,8 @@ PREDICTORS18 = [
     'ip_device_os_nunique_channel',
     'ip_nextclick',
     'ip_channel_nextclick'
-    ]	
-	
+    ]
+
 NEW_FEATURE = [    
     'channel_count_app',
     'ip_count_app',
@@ -236,8 +225,6 @@ def print_memory(print_string=''):
 def get_predictors(option):
     if option==3:
         predictors = PREDICTORS3
-    if option==10:
-        predictors = PREDICTORS10
     if option==11:
         predictors = PREDICTORS11
     if option==15:
@@ -247,7 +234,7 @@ def get_predictors(option):
     if option==17:
         predictors = PREDICTORS17
     if option==18:
-        predictors = PREDICTORS18  		
+        predictors = PREDICTORS18        
 
     print('------------------------------------------------')
     print('predictors:')
@@ -300,6 +287,16 @@ def read_processed_h5(filename, predictors):
     print(train_df.info())   
     return train_df
 
+TEST_HOUR_LIST = [4,5,6,9,10,11,13,14,15]
+def read_processed_h5_only_hour_in_test(train_df):
+    t0 = time.time()
+    train_df = train_df.loc[train_df['hour'].isin(TEST_HOUR_LIST)]
+    t1 = time.time()
+    print_memory()
+    total = t1-t0
+    print('total removing time:', total)
+    print(train_df.info())   
+    return train_df
 
 def DO(num_leaves,max_depth, option):
     print('------------------------------------------------')
@@ -309,7 +306,6 @@ def DO(num_leaves,max_depth, option):
     predictors = get_predictors(option)
     categorical = get_categorical(predictors)
     target = TARGET
-   
 
     if debug==0:
         print('=======================================================================')
@@ -326,10 +322,10 @@ def DO(num_leaves,max_depth, option):
         print('reading train')
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_cv2_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_testhour_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_cv2_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_testhour_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option)
 
     print('----------------------------------------------------------')
@@ -344,12 +340,23 @@ def DO(num_leaves,max_depth, option):
     print('option:', option)
 
     print('----------------------------------------------------------')
+    print('>> reading...')
     train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-    train_df = train_df.sample(frac=frac, random_state = SEED)
+    if debug: print('list unique hours:', train_df.hour.unique())
+    print('----------------------------------------------------------')
+    print('>> keep test hours...')
+    train_df = read_processed_h5_only_hour_in_test(train_df) 
+    if debug: print('list unique hours:', train_df.hour.unique())
+    if frac<1:
+        print('>> sampling...')
+        train_df = train_df.sample(frac=frac, random_state = SEED)
     print_memory('afer reading train:')
+    print('----------------------------------------------------------')        
+    # train_df = train_df.drop(['hour'], axis=1)
     print(train_df.head())
     print("train size: ", len(train_df))
     gc.collect()
+    print_memory()
 
     print('----------------------------------------------------------')
     print("Training...")
@@ -392,8 +399,6 @@ def DO(num_leaves,max_depth, option):
     print_memory()                        
     
     print('>> start cv...')
-
-
     cv_results  = lgb.cv(params, 
                         dtrain_lgb, 
                         categorical_feature = categorical,
@@ -410,7 +415,6 @@ def DO(num_leaves,max_depth, option):
 
     print('[{}]: model training time'.format(time.time() - start_time))
     print('Total memory in use after cv training: ', process.memory_info().rss/(2**30), ' GB\n')
-
 
     # print (cv_results)
     print('--------------------------------------------------------------------') 
@@ -450,9 +454,7 @@ def DO(num_leaves,max_depth, option):
 
 num_leaves_list = [16]
 max_depth_list = [-1]
-# option_list = [16, 15, 11, 10, 3]
-# option_list = [3, 15, 18]
-option_list = [15, 18]
+option_list = [3, 11, 15, 16, 18]
 
 for option in option_list:
     for i in range(len(num_leaves_list)):
@@ -464,7 +466,7 @@ for option in option_list:
         if debug: print ('option:', option)
         predictors = get_predictors(option)
         subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_' + boosting_type + '_cv2_' + str(int(100*frac)) + \
+                'features_' + boosting_type + '_cv_testhour_' + str(int(100*frac)) + \
                 'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
         if debug: print (subfilename)                
         if os.path.isfile(subfilename):
