@@ -1,16 +1,12 @@
-debug = 1
+debug = 0
 frac = 0.01
-
-# debug = 0
-# frac = 0.01
 
 import pandas as pd
 import numpy as np
 
 import keras
 import tensorflow as tf
-config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 4}) 
-# config = tf.ConfigProto( device_count = {'GPU': 0, 'CPU': 4} ) 
+config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 4} ) 
 sess = tf.Session(config=config) 
 keras.backend.set_session(sess)
 
@@ -18,6 +14,7 @@ keras.backend.set_session(sess)
 #     os.environ['OMP_NUM_THREADS'] = '4'
 # else:    
 #     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import PReLU
@@ -37,14 +34,12 @@ from sklearn.metrics import accuracy_score
 from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from scipy import sparse
 from sklearn.metrics import roc_auc_score
 import gc
 import psutil
 import datetime
-
-
 
 
 now = datetime.datetime.now()
@@ -96,33 +91,18 @@ PREDICTORS = [
     'ip_app_nunique_os',
     'ip_nunique_device',
     'app_nunique_channel',
+    # 'ip_cumcount_os', # X6
     'ip_device_os_nunique_app', # X8
     'ip_os_device_app_nextclick',
     'ip_day_hour_count_channel',
     'ip_app_count_channel',
     'ip_app_os_count_channel',
+    # 'ip_day_channel_var_hour', # miss
+    # 'ip_app_os_var_hour',
+    # 'ip_app_channel_var_day',
+    # 'ip_app_channel_mean_hour'
     ]    
 
-
-# PREDICTORS = [
-#     # core 9
-#     'app', 'os', 'device', 'channel', 'hour',
-#     'ip_os_device_app_nextclick',
-#     'ip_device_os_nunique_app',
-#     'ip_nunique_channel',
-#     'ip_nunique_app', 
-#     # add
-#     'ip_nunique_device',
-#     'ip_cumcount_os',
-#     'ip_device_os_nextclick',
-#     'ip_os_device_channel_app_nextclick',
-#     'ip_app_os_count_channel',
-#     'ip_count_app',
-#     'app_count_channel',
-#     'ip_device_os_nunique_channel',
-#     'ip_nextclick',
-#     'ip_channel_nextclick'
-#     ]
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -198,10 +178,8 @@ categorical = get_categorical(predictors)
 target = TARGET
 
 print('>> read train...')
-print('frac:',frac)
 train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-if frac<1:
-    train_df = train_df.sample(frac=frac, random_state = SEED)
+train_df = train_df.sample(frac=frac, random_state = SEED)
 print_memory()
 train_label = train_df[target]
 train_label = train_df[target].values.astype('int').flatten()
@@ -216,19 +194,19 @@ test_id = test_df['click_id']
 test_df = test_df.drop('click_id', axis=1)
 print_memory()
 
-# print('>> stack...')
-# traintest_cat = np.vstack((train_cat, test_cat))
-# traintest_cat = pd.DataFrame(traintest_cat, columns=categorical)
-# print(traintest_cat.shape)
-# print_memory()
+print('>> stack...')
+traintest_cat = np.vstack((train_cat, test_cat))
+traintest_cat = pd.DataFrame(traintest_cat, columns=categorical)
+print(traintest_cat.shape)
+print_memory()
 
-# print ('>> label encoder')
-# from sklearn.preprocessing import LabelEncoder
-# train_df[categorical].apply(LabelEncoder().fit_transform)
-# test_df[categorical].apply(LabelEncoder().fit_transform)
-# print('train:', train_df.head())
-# print('test:', test_df.head())
-# print_memory()
+print ('>> label encoder')
+from sklearn.preprocessing import LabelEncoder
+train_df[categorical].apply(LabelEncoder().fit_transform)
+test_df[categorical].apply(LabelEncoder().fit_transform)
+print('train:', train_df.head())
+print('test:', test_df.head())
+print_memory()
 
 print('>> prepare dataset...')
 train_df = train_df.as_matrix()
@@ -240,11 +218,6 @@ if debug: print(train_list); print(test_list)
 print_memory()
 
 print('>> scale standard')
-# scaler = MinMaxScaler(feature_range=(0, 1))
-# scaler = scaler.fit(np.concatenate((train_list, test_list), axis=0))
-# train_list = scaler.transform(train_list)
-# test_list = scaler.transform(test_list)
-
 scaler = StandardScaler()
 scaler.fit(np.concatenate((train_list, test_list), axis=0))
 train_list = scaler.transform(train_list)
@@ -254,13 +227,14 @@ print_memory()
 X = train_list
 del train_list; gc.collect
 X_test = test_list
-X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
 del test_list; gc.collect
 
 gc.collect()
 print(X.shape, X_test.shape)
 np.set_printoptions(precision=3)
 print(X)
+
+
 
 print('>> init network')
 output_file_name='CNN_2_relu'
@@ -269,83 +243,6 @@ batch_size= 2048
 epochs = 100
 # step_size = len(train_df)
 nb_features = len(predictors)
-
-import keras.backend as K
-from keras.callbacks import Callback
-import logging
-from sklearn.metrics import roc_auc_score
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# AUC for a binary classifier
-def auc(y_true, y_pred):   
-    ptas = tf.stack([binary_PTA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
-    pfas = tf.stack([binary_PFA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
-    pfas = tf.concat([tf.ones((1,)) ,pfas],axis=0)
-    binSizes = -(pfas[1:]-pfas[:-1])
-    s = ptas*binSizes
-    return K.sum(s, axis=0)
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# PFA, prob false alert for binary classifier
-def binary_PFA(y_true, y_pred, threshold=K.variable(value=0.5)):
-    y_pred = K.cast(y_pred >= threshold, 'float32')
-    # N = total number of negative labels
-    N = K.sum(1 - y_true)
-    # FP = total number of false alerts, alerts from the negative class labels
-    FP = K.sum(y_pred - y_pred * y_true)    
-    return FP/N
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# P_TA prob true alerts for binary classifier
-def binary_PTA(y_true, y_pred, threshold=K.variable(value=0.5)):
-    y_pred = K.cast(y_pred >= threshold, 'float32')
-    # P = total number of positive labels
-    P = K.sum(y_true)
-    # TP = total number of correct alerts, alerts from the positive class labels
-    TP = K.sum(y_pred * y_true)    
-    return TP/P
-
-
-def build_model_lstm(X_input):
-    model = Sequential()
-
-    model.add(LSTM(512, input_shape=(X_input.shape[1],X_input.shape[2])))
-    model.add(BatchNormalization())
-    model.add(Dropout(.2))
-
-    model.add(Dense(256, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.1))
-
-    model.add(Dense(256, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.1))
-
-    model.add(Dense(128, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
-
-    model.add(Dense(64, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
-
-    model.add(Dense(32, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
-
-    model.add(Dense(16, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
-
-    model.add(Dense(1, init='he_normal', activation='sigmoid'))
-    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy'])
-    # model.compile(loss='mean_squared_error',optimizer='Adam',metrics=['accuracy'])
-
-    return model
 
 def baseline_model():
     model = Sequential()
@@ -365,24 +262,10 @@ def baseline_model():
     return (model)
 
 
-def save_sub(cv_pred, s):
-    print('--------------------------------------------------------------------') 
-    sub = pd.DataFrame()
-    sub['click_id'] = test_id
-    subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_dl_cv_' + str(s) + '_' + str(int(100*frac)) + \
-                'percent_full.csv.gz'
-
-    print(">> Predicting...")
-    sub['is_attributed'] = cv_pred * 1./ (NFOLDS * num_seeds)
-    print("writing...")
-    sub.to_csv(subfilename,index=False,compression='gzip')
-    print("done...")
-
+# print(train_label)
 
 NFOLDS = 5
-kfold = StratifiedKFold(n_splits=NFOLDS, shuffle=True, random_state=SEED)
-
+kfold = StratifiedKFold(n_splits=NFOLDS, shuffle=True, random_state=218)
 
 cv_train = np.zeros(len(train_label))
 cv_pred = np.zeros(len(test_id))
@@ -394,50 +277,22 @@ for s in range(num_seeds):
     print('--------------------------------------------------------')
     print('seed', s)
     print('--------------------------------------------------------')
-    i=0
     for (inTr, inTe) in kfold.split(X, train_label):
         print('>> split')
         xtr = X[inTr]
         ytr = train_label[inTr]
         xte = X[inTe]
         yte = train_label[inTe]
-        print('>> transform')
-        xtr = xtr.reshape((xtr.shape[0], 1, xtr.shape[1]))
-        xte = xte.reshape((xte.shape[0], 1, xte.shape[1]))
+
         print('>> fitting...')
-        # model = baseline_model()
-        model = build_model_lstm(xtr)
-        if debug: 
-            batch_size=2048
-        else: 
-            batch_size=2048*64
-        class_weight = {0:.01,1:.70} # magic  
-
-        filepath="model/weights-improvement-seed{}-fold{}.hdf5".format(s,i+1)
-        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                save_best_only=False, save_weights_only=True, mode='auto', period=2)
-        callbacks_list = [checkpoint]          
-        
-        model.fit(xtr, ytr, epochs=100, batch_size=batch_size, verbose=1, class_weight=class_weight,
-                validation_data=[xte, yte], callbacks=callbacks_list)
+        model = baseline_model()
+        model.fit(xtr, ytr, epochs=21, batch_size=2048*64, verbose=1, validation_data=[xte, yte])
         print('>> valid...')
-
-        cv_train_temp = np.zeros(len(inTe))
-        cv_train_temp = model.predict_proba(x=xte, batch_size=batch_size, verbose=1)[:, 0]
-        cv_train[inTe] = (cv_train[inTe]*s + cv_train_temp)/(s+1)
-
+        cv_train[inTe] += model.predict_proba(x=xte, batch_size=2048, verbose=1)[:, 0]
         print('>> predict...')
-        cv_pred += model.predict_proba(x=X_test, batch_size=batch_size, verbose=1)[:, 0]
-
-        print('--------------------------------------------------------')
-        i=i+1
-        print('seed:', s, 'fold:', i, '/', NFOLDS)
-        print('auc:',roc_auc_score(train_label, cv_train))
-        print('--------------------------------------------------------')
-    print('>> save sub...')   
-    if frac>0.4:     
-        save_sub(cv_pred, s)
-
+        cv_pred += model.predict_proba(x=X_test, batch_size=2048, verbose=1)[:, 0]
+    print(s)
+    print(roc_auc_score(train_label, cv_train))
 
 
 print('--------------------------------------------------------------------') 

@@ -326,10 +326,10 @@ def DO(num_leaves,max_depth, option):
         print('reading train')
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_cv_newparam_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_newparam2_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_cv_newparam_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_newparam2_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option)
 
     print('----------------------------------------------------------')
@@ -364,7 +364,8 @@ def DO(num_leaves,max_depth, option):
         'num_leaves': num_leaves,  # we should let it be smaller than 2^(max_depth)
         'max_depth': max_depth,  # -1 means no limit
         'min_data_in_leaf': 128,  # Minimum number of data need in a child(min_data_in_leaf)
-        'max_bin': 512,  # Number of bucketed bin for feature values
+        # 'max_bin': 512,  # Number of bucketed bin for feature values
+        'max_bin': 1024,  # Number of bucketed bin for feature values
         'subsample': 0.5,  # Subsample ratio of the training instance.
         'subsample_freq': 1,  # frequence of subsample, <=0 means no enable
         'feature_fraction': 0.9,  # Subsample ratio of columns when constructing each tree.
@@ -449,8 +450,11 @@ def DO(num_leaves,max_depth, option):
     print("done...")
     return sub
 
-num_leaves_list = [128]
-max_depth_list = [16]
+# num_leaves_list = [128]
+# max_depth_list = [16]
+
+num_leaves_list = [512]
+max_depth_list = [64]
 # option_list = [16, 15, 11, 10, 3]
 # option_list = [3, 15, 18]
 option_list = [18, 15, 3]
@@ -465,7 +469,7 @@ for option in option_list:
         if debug: print ('option:', option)
         predictors = get_predictors(option)
         subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_' + boosting_type + '_cv_newparam_' + str(int(100*frac)) + \
+                'features_' + boosting_type + '_cv_newparam2_' + str(int(100*frac)) + \
                 'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
         if debug: print (subfilename)                
         if os.path.isfile(subfilename):
