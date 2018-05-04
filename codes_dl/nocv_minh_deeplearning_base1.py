@@ -2,9 +2,9 @@
 # frac = 0.01
 
 debug = 0
-frac = 0.5
+frac = 0.8
 
-OPTION = 3
+OPTION = 18
 
 import pandas as pd
 import numpy as np
@@ -23,12 +23,12 @@ keras.backend.set_session(sess)
 
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import PReLU
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.layers import Dense, Dropout, Activation, Flatten,Reshape
 from keras.layers import Conv1D, MaxPooling1D
 from keras.utils import np_utils
 from keras.layers import LSTM, LeakyReLU
-from keras.callbacks import CSVLogger, ModelCheckpoint
+from keras.callbacks import CSVLogger, ModelCheckpoint, EarlyStopping
 from sklearn.cross_validation import train_test_split
 import h5py
 import os, time
@@ -45,7 +45,7 @@ from sklearn.metrics import roc_auc_score
 import gc
 import psutil
 import datetime
-
+from keras.optimizers import Adam
 
 
 
@@ -269,33 +269,35 @@ print('>> scale standard')
 print(train_list.shape)
 scaler = StandardScaler()
 
-# if OPTION==3:
-#     train_pred_name = 'train_pred3_80percent.npy'
-#     test_pred_name = 'test_pred3_80percent.npy'
-#     if os.path.exists(train_pred_name):
-#         print('found, >> loading...')
-#         train_list = np.load(train_pred_name)
-#         test_list = np.load(test_pred_name)
-#     else:
-#         scaler.fit(np.concatenate((train_list, test_list), axis=0))
-#         train_list = scaler.transform(train_list)
-#         test_list = scaler.transform(test_list)
-# elif OPTION==18:
-#     train_pred_name = 'train_pred18_80percent.npy'
-#     test_pred_name = 'test_pred18_80percent.npy'
-#     if os.path.exists(train_pred_name):
-#         print('found >> loading...')
-#         train_list = np.load(train_pred_name)
-#         test_list = np.load(test_pred_name)
-#     else:
-#         scaler.fit(np.concatenate((train_list, test_list), axis=0))
-#         train_list = scaler.transform(train_list)
-#         test_list = scaler.transform(test_list)
-# print(train_list.shape)        
-scaler.fit(np.concatenate((train_list, test_list), axis=0))
-train_list = scaler.transform(train_list)
-test_list = scaler.transform(test_list)
-print(train_list.shape) 
+if not debug:
+    if OPTION==3:
+        train_pred_name = 'train_pred3_80percent.npy'
+        test_pred_name = 'test_pred3_80percent.npy'
+        if os.path.exists(train_pred_name):
+            print('found, >> loading...')
+            train_list = np.load(train_pred_name)
+            test_list = np.load(test_pred_name)
+        else:
+            scaler.fit(np.concatenate((train_list, test_list), axis=0))
+            train_list = scaler.transform(train_list)
+            test_list = scaler.transform(test_list)
+    elif OPTION==18:
+        train_pred_name = 'train_pred18_80percent.npy'
+        test_pred_name = 'test_pred18_80percent.npy'
+        if os.path.exists(train_pred_name):
+            print('found >> loading...')
+            train_list = np.load(train_pred_name)
+            test_list = np.load(test_pred_name)
+        else:
+            scaler.fit(np.concatenate((train_list, test_list), axis=0))
+            train_list = scaler.transform(train_list)
+            test_list = scaler.transform(test_list)
+else:
+    scaler.fit(np.concatenate((train_list, test_list), axis=0))
+    train_list = scaler.transform(train_list)
+    test_list = scaler.transform(test_list)        
+
+print(train_list.shape)        
 print_memory()
 
 X = train_list
@@ -321,35 +323,14 @@ import keras.backend as K
 from keras.callbacks import Callback
 import logging
 from sklearn.metrics import roc_auc_score
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# AUC for a binary classifier
-def auc(y_true, y_pred):   
-    ptas = tf.stack([binary_PTA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
-    pfas = tf.stack([binary_PFA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
-    pfas = tf.concat([tf.ones((1,)) ,pfas],axis=0)
-    binSizes = -(pfas[1:]-pfas[:-1])
-    s = ptas*binSizes
-    return K.sum(s, axis=0)
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# PFA, prob false alert for binary classifier
-def binary_PFA(y_true, y_pred, threshold=K.variable(value=0.5)):
-    y_pred = K.cast(y_pred >= threshold, 'float32')
-    # N = total number of negative labels
-    N = K.sum(1 - y_true)
-    # FP = total number of false alerts, alerts from the negative class labels
-    FP = K.sum(y_pred - y_pred * y_true)    
-    return FP/N
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# P_TA prob true alerts for binary classifier
-def binary_PTA(y_true, y_pred, threshold=K.variable(value=0.5)):
-    y_pred = K.cast(y_pred >= threshold, 'float32')
-    # P = total number of positive labels
-    P = K.sum(y_true)
-    # TP = total number of correct alerts, alerts from the positive class labels
-    TP = K.sum(y_pred * y_true)    
-    return TP/P
-
+def jacek_auc(y_true, y_pred):
+   score, up_opt = tf.metrics.auc(y_true, y_pred)
+   #score, up_opt = tf.contrib.metrics.streaming_auc(y_pred, y_true)    
+   K.get_session().run(tf.local_variables_initializer())
+   with tf.control_dependencies([up_opt]):
+       score = tf.identity(score)
+   return score
 
 def build_model_lstm(X_input):
     model = Sequential()
@@ -389,7 +370,7 @@ def build_model_lstm(X_input):
     model.add(Dropout(.05))
 
     model.add(Dense(1, init='he_normal', activation='sigmoid'))
-    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy', jacek_auc])
     # model.compile(loss='mean_squared_error',optimizer='Adam',metrics=['accuracy'])
 
     return model
@@ -408,7 +389,7 @@ def baseline_model():
     model.add(Dropout(0.8))
 
     model.add(Dense(1, init='he_normal', activation='sigmoid'))
-    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy', jacek_auc])
     return (model)
 
 
@@ -430,72 +411,61 @@ def save_sub(cv_pred, s):
 NFOLDS = 5
 kfold = StratifiedKFold(n_splits=NFOLDS, shuffle=True, random_state=SEED)
 
-
-cv_train = np.zeros(len(train_label))
 cv_pred = np.zeros(len(test_id))
 num_seeds = 2
 print('=========================================================================')
 print('>> start training')
-for s in range(num_seeds):
-    np.random.seed(s)
-    print('--------------------------------------------------------')
-    print('seed', s)
-    print('--------------------------------------------------------')
-    i=0
-    for (inTr, inTe) in kfold.split(X, train_label):
-        print('>> split')
-        xtr = X[inTr]
-        ytr = train_label[inTr]
-        xte = X[inTe]
-        yte = train_label[inTe]
-        print('>> transform')
-        xtr = xtr.reshape((xtr.shape[0], 1, xtr.shape[1]))
-        xte = xte.reshape((xte.shape[0], 1, xte.shape[1]))
-        print('>> fitting...')
-        # model = baseline_model()
-        model = build_model_lstm(xtr)
-        if debug: 
-            batch_size=2048
-        else: 
-            batch_size=2048*64
-        class_weight = {0:.01,1:.70} # magic  
 
-        filepath="model/weights-improvement-seed{}-fold{}.hdf5".format(s,i+1)
-        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                save_best_only=True, save_weights_only=True, mode='auto', period=1)
-        callbacks_list = [checkpoint]          
-        
-        model.fit(xtr, ytr, epochs=80, batch_size=batch_size, verbose=1, class_weight=class_weight,
-                validation_data=[xte, yte], callbacks=callbacks_list)
-        print('>> valid...')
+for (inTr, inTe) in kfold.split(X, train_label):
+    print('>> split')
+    xtr = X[inTr]
+    ytr = train_label[inTr]
+    xte = X[inTe]
+    yte = train_label[inTe]
+    print('>> transform')
+    # xtr = xtr.reshape((xtr.shape[0], 1, xtr.shape[1]))
+    # xte = xte.reshape((xte.shape[0], 1, xte.shape[1]))
+    print('>> fitting...')
+    model = baseline_model()
+    # model = build_model_lstm(xtr)
+    if debug: 
+        batch_size=2048
+    else: 
+        batch_size=2048*64
+    class_weight = {0:.01,1:.70} # magic  
 
-        cv_train_temp = np.zeros(len(inTe))
-        cv_train_temp = model.predict_proba(x=xte, batch_size=batch_size, verbose=1)[:, 0]
-        cv_train[inTe] = (cv_train[inTe]*s + cv_train_temp)/(s+1)
+    # print('>> load weights...')
+    # if debug:
+    #     model.load_weights('model/weights_improvement_1percent_option18_base2_auc.hdf5')
+    # else:
+    #     model.load_weights('model/weights_improvement_80percent_option18_base2_acc.h5')
 
-        print('>> predict...')
-        cv_pred += model.predict_proba(x=X_test, batch_size=batch_size, verbose=1)[:, 0]
+    filepath="model/weights_improvement_{}percent_option{}_base1_auc.hdf5".format(int(frac*100), OPTION)
+    checkpoint = ModelCheckpoint(filepath, monitor='val_jacek_auc', verbose=1, 
+            save_best_only=True, save_weights_only=True, mode='max', period=1)
+    earlystopping = EarlyStopping(monitor='val_jacek_auc',
+            min_delta=0,
+            patience=20,
+            verbose=0, mode='max')
+    # callbacks_list = [checkpoint, earlystopping]          
+    callbacks_list = [checkpoint]    
+    
+    model.fit(xtr, ytr, epochs=500, batch_size=batch_size, verbose=1, class_weight=class_weight,
+            validation_data=[xte, yte], callbacks=callbacks_list)
+    break
 
-        print('--------------------------------------------------------')
-        i=i+1
-        print('seed:', s, 'fold:', i, '/', NFOLDS)
-        print('auc:',roc_auc_score(train_label, cv_train))
-        print('--------------------------------------------------------')
-    print('>> save sub...')   
-    if frac>0.4:     
-        save_sub(cv_pred, s)
-
-
+print('>> predict...')
+cv_pred = model.predict_proba(x=X_test, batch_size=batch_size, verbose=1)[:, 0]
 
 print('--------------------------------------------------------------------') 
 sub = pd.DataFrame()
 sub['click_id'] = test_id
 subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_dl_cv_' + str(int(100*frac)) + \
-            'percent_full.csv.gz'
+            'percent_full_base1_option18.csv.gz'
 
 print(">> Predicting...")
-sub['is_attributed'] = cv_pred * 1./ (NFOLDS * num_seeds)
+sub['is_attributed'] = cv_pred * 1.
 print("writing...")
 sub.to_csv(subfilename,index=False,compression='gzip')
 print("done...")

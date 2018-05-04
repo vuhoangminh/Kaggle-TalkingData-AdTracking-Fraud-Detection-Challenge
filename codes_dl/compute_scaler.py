@@ -1,10 +1,8 @@
-# debug = 1
-# frac = 0.01
+# debug = 2
+# frac = 1
 
 debug = 0
-frac = 0.5
-
-OPTION = 18
+frac = 0.8
 
 import pandas as pd
 import numpy as np
@@ -14,11 +12,6 @@ import tensorflow as tf
 config = tf.ConfigProto( device_count = {'GPU': 1 , 'CPU': 4} ) 
 sess = tf.Session(config=config) 
 keras.backend.set_session(sess)
-
-# if debug:
-#     os.environ['OMP_NUM_THREADS'] = '4'
-# else:    
-#     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 from keras.layers.normalization import BatchNormalization
@@ -39,12 +32,17 @@ from sklearn.metrics import accuracy_score
 from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from scipy import sparse
 from sklearn.metrics import roc_auc_score
 import gc
 import psutil
 import datetime
+
+if debug:
+    os.environ['OMP_NUM_THREADS'] = '4'
+else:    
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 now = datetime.datetime.now()
@@ -86,7 +84,8 @@ else:
     day_string = str(now.day)
 yearmonthdate_string = str(now.year) + month_string + day_string
 
-PREDICTORS3 = [
+# OPTION 3 - PREVIOUS RESULT - 31_5_100_9781
+PREDICTORS = [
     'app', 'device', 'os', 'channel', 'hour',
     'ip_nunique_channel',   # X0
     'ip_device_os_cumcount_app',
@@ -100,29 +99,31 @@ PREDICTORS3 = [
     'ip_day_hour_count_channel',
     'ip_app_count_channel',
     'ip_app_os_count_channel',
+    'ip_app_os_var_hour',
+    'ip_app_channel_var_day',
+    'ip_app_channel_mean_hour'
     ]    
 
-
-PREDICTORS18 = [
-    # core 9
-    'app', 'os', 'device', 'channel', 'hour',
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app', 
-    # add
-    'ip_nunique_device',
-    'ip_cumcount_os',
-    'ip_device_os_nextclick',
-    'ip_os_device_channel_app_nextclick',
-    'ip_app_os_count_channel',
-    'ip_count_app',
-    'app_count_channel',
-    'ip_device_os_nunique_channel',
-    'ip_nextclick',
-    'ip_channel_nextclick'
-    ]  
-
+# OPTION 18 - for testing
+# PREDICTORS = [
+#     # core 9
+#     'app', 'os', 'device', 'channel', 'hour',
+#     'ip_os_device_app_nextclick',
+#     'ip_device_os_nunique_app',
+#     'ip_nunique_channel',
+#     'ip_nunique_app', 
+#     # add
+#     'ip_nunique_device',
+#     'ip_cumcount_os',
+#     'ip_device_os_nextclick',
+#     'ip_os_device_channel_app_nextclick',
+#     'ip_app_os_count_channel',
+#     'ip_count_app',
+#     'app_count_channel',
+#     'ip_device_os_nunique_channel',
+#     'ip_nextclick',
+#     'ip_channel_nextclick'
+#     ]
 
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
@@ -147,10 +148,7 @@ def print_memory(print_string=''):
 
 
 def get_predictors():
-    if OPTION==3:
-        predictors = PREDICTORS3
-    if OPTION==18:
-        predictors = PREDICTORS18     
+    predictors = PREDICTORS
     print('------------------------------------------------')
     print('predictors:')
     for feature in predictors:
@@ -180,6 +178,12 @@ NEW_FEATURE = [
     'app_count_channel',
     'ip_device_os_nunique_channel',
     'channel_nunique_app'
+    ]
+
+CATEGORICAL = [
+    'ip', 'app', 'device', 'os', 'channel',     
+    'mobile', 'mobile_app', 'mobile_channel', 'app_channel',
+    'category', 'epochtime', 'min', 'day', 'hour'
     ]
 
 def read_processed_h5(filename, predictors):
@@ -222,8 +226,10 @@ categorical = get_categorical(predictors)
 target = TARGET
 
 print('>> read train...')
+print('frac:',frac)
 train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-train_df = train_df.sample(frac=frac, random_state = SEED)
+if frac<1:
+    train_df = train_df.sample(frac=frac, random_state = SEED)
 print_memory()
 train_label = train_df[target]
 train_label = train_df[target].values.astype('int').flatten()
@@ -238,177 +244,32 @@ test_id = test_df['click_id']
 test_df = test_df.drop('click_id', axis=1)
 print_memory()
 
-# print('>> stack...')
-# traintest_cat = np.vstack((train_cat, test_cat))
-# traintest_cat = pd.DataFrame(traintest_cat, columns=categorical)
-# print(traintest_cat.shape)
-# print_memory()
-
-# print ('>> label encoder')
-# from sklearn.preprocessing import LabelEncoder
-# train_df[categorical].apply(LabelEncoder().fit_transform)
-# test_df[categorical].apply(LabelEncoder().fit_transform)
-# print('train:', train_df.head())
-# print('test:', test_df.head())
-# print_memory()
-
 print('>> prepare dataset...')
 train_df = train_df.as_matrix()
 test_df = test_df.as_matrix()
 train_list = train_df
 test_list = test_df
 del train_df, test_df; gc.collect()
-if debug: print(train_list); print(test_list)
 print_memory()
 
 print('>> scale standard')
-print(train_list.shape)
 scaler = StandardScaler()
-
-# if OPTION==3:
-#     train_pred_name = 'train_pred3_80percent.npy'
-#     test_pred_name = 'test_pred3_80percent.npy'
-#     if os.path.exists(train_pred_name):
-#         print('found, >> loading...')
-#         train_list = np.load(train_pred_name)
-#         test_list = np.load(test_pred_name)
-#     else:
-#         scaler.fit(np.concatenate((train_list, test_list), axis=0))
-#         train_list = scaler.transform(train_list)
-#         test_list = scaler.transform(test_list)
-# elif OPTION==18:
-#     train_pred_name = 'train_pred18_80percent.npy'
-#     test_pred_name = 'test_pred18_80percent.npy'
-#     if os.path.exists(train_pred_name):
-#         print('found >> loading...')
-#         train_list = np.load(train_pred_name)
-#         test_list = np.load(test_pred_name)
-#     else:
-#         scaler.fit(np.concatenate((train_list, test_list), axis=0))
-#         train_list = scaler.transform(train_list)
-#         test_list = scaler.transform(test_list)
-# print(train_list.shape)        
-scaler.fit(np.concatenate((train_list, test_list), axis=0))
+scaler.partial_fit(np.concatenate((train_list, test_list), axis=0))
 train_list = scaler.transform(train_list)
 test_list = scaler.transform(test_list)
-print(train_list.shape) 
 print_memory()
 
-X = train_list
-del train_list; gc.collect
-X_test = test_list
-X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
-del test_list; gc.collect
+print('>> saving')
 
-gc.collect()
-print(X.shape, X_test.shape)
-np.set_printoptions(precision=3)
-print(X)
+np.save('train_pred3_80percent.npy', train_list)
+np.save('test_pred3_80percent.npy', test_list)
 
 
-print('>> init network')
-output_file_name='CNN_2_relu'
+# print(train_list)
 
-nb_features = len(predictors)
+# print('>> loading')
+# train_list_temp = np.load('train_pred18.npy')
+# test_list_temp = np.load('test_pred18.npy')
+# print(train_list_temp)
 
-def baseline_model():
-    model = Sequential()
-
-    model.add(Dense(512, input_dim=X.shape[1], init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(0.9))
-
-    model.add(Dense(64, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(0.8))
-
-    model.add(Dense(1, init='he_normal', activation='sigmoid'))
-    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy'])
-    return (model)
-
-
-def save_sub(cv_pred, s):
-    print('--------------------------------------------------------------------') 
-    sub = pd.DataFrame()
-    sub['click_id'] = test_id
-    subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_dl_cv_' + str(s) + '_' + str(int(100*frac)) + \
-                'percent_full.csv.gz'
-
-    print(">> Predicting...")
-    sub['is_attributed'] = cv_pred * 1./ (NFOLDS * num_seeds)
-    print("writing...")
-    sub.to_csv(subfilename,index=False,compression='gzip')
-    print("done...")
-
-NFOLDS = 5
-kfold = StratifiedKFold(n_splits=NFOLDS, shuffle=True, random_state=218)
-
-cv_train = np.zeros(len(train_label))
-cv_pred = np.zeros(len(test_id))
-num_seeds = 2
-print('=========================================================================')
-print('>> start training')
-for s in range(num_seeds):
-    np.random.seed(s)
-    print('--------------------------------------------------------')
-    print('seed', s)
-    print('--------------------------------------------------------')
-    i=0
-    for (inTr, inTe) in kfold.split(X, train_label):
-        print('>> split')
-        xtr = X[inTr]
-        ytr = train_label[inTr]
-        xte = X[inTe]
-        yte = train_label[inTe]
-
-        print('>> fitting...')
-        model = baseline_model()
-
-        if debug: 
-            batch_size=2048
-        else: 
-            batch_size=2048*64
-        class_weight = {0:.01,1:.70} # magic  
-        
-        filepath="model/weights-improvement-seed{}-fold{}.hdf5".format(s,i+1)
-        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, 
-                save_best_only=True, save_weights_only=True, mode='auto', period=1)
-        callbacks_list = [checkpoint]          
-        
-        model.fit(xtr, ytr, epochs=80, batch_size=batch_size, verbose=1, class_weight=class_weight,
-                validation_data=[xte, yte], callbacks=callbacks_list)
-        print('>> valid...')
-
-        cv_train_temp = np.zeros(len(inTe))
-        cv_train_temp = model.predict_proba(x=xte, batch_size=batch_size, verbose=1)[:, 0]
-        cv_train[inTe] = (cv_train[inTe]*s + cv_train_temp)/(s+1)
-
-        print('>> predict...')
-        cv_pred += model.predict_proba(x=X_test, batch_size=batch_size, verbose=1)[:, 0]
-
-        print('--------------------------------------------------------')
-        i=i+1
-        print('seed:', s, 'fold:', i, '/', NFOLDS)
-        print('auc:',roc_auc_score(train_label, cv_train))
-        print('--------------------------------------------------------')
-    print('>> save sub...')   
-    if frac>0.4:     
-        save_sub(cv_pred, s)
-        
-
-
-print('--------------------------------------------------------------------') 
-sub = pd.DataFrame()
-sub['click_id'] = test_id
-subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_dl_cv_' + str(int(100*frac)) + \
-            'percent_full.csv.gz'
-
-print(">> Predicting...")
-sub['is_attributed'] = cv_pred * 1./ (NFOLDS * num_seeds)
-print("writing...")
-sub.to_csv(subfilename,index=False,compression='gzip')
-print("done...")
+# print(train_list==train_list_temp)
