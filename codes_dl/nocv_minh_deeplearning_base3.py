@@ -242,20 +242,6 @@ test_id = test_df['click_id']
 test_df = test_df.drop('click_id', axis=1)
 print_memory()
 
-# print('>> stack...')
-# traintest_cat = np.vstack((train_cat, test_cat))
-# traintest_cat = pd.DataFrame(traintest_cat, columns=categorical)
-# print(traintest_cat.shape)
-# print_memory()
-
-# print ('>> label encoder')
-# from sklearn.preprocessing import LabelEncoder
-# train_df[categorical].apply(LabelEncoder().fit_transform)
-# test_df[categorical].apply(LabelEncoder().fit_transform)
-# print('train:', train_df.head())
-# print('test:', test_df.head())
-# print_memory()
-
 print('>> prepare dataset...')
 train_df = train_df.as_matrix()
 test_df = test_df.as_matrix()
@@ -332,6 +318,86 @@ def jacek_auc(y_true, y_pred):
        score = tf.identity(score)
    return score
 
+def binary_crossentropy_with_ranking(y_true, y_pred):
+    """ Trying to combine ranking loss with numeric precision"""
+    # first get the log loss like normal
+    logloss = K.mean(K.binary_crossentropy(y_pred, y_true), axis=-1)
+    
+    # next, build a rank loss
+    
+    # clip the probabilities to keep stability
+    y_pred_clipped = K.clip(y_pred, K.epsilon(), 1-K.epsilon())
+
+    # translate into the raw scores before the logit
+    y_pred_score = K.log(y_pred_clipped / (1 - y_pred_clipped))
+
+    # determine what the maximum score for a zero outcome is
+    y_pred_score_zerooutcome_max = K.max(y_pred_score * (y_true <1))
+
+    # determine how much each score is above or below it
+    rankloss = y_pred_score - y_pred_score_zerooutcome_max
+
+    # only keep losses for positive outcomes
+    rankloss = rankloss * y_true
+
+    # only keep losses where the score is below the max
+    rankloss = K.square(K.clip(rankloss, -100, 0))
+
+    # average the loss for just the positive outcomes
+    rankloss = K.sum(rankloss, axis=-1) / (K.sum(y_true > 0) + 1)
+
+    # return (rankloss + 1) * logloss - an alternative to try
+    return rankloss + logloss
+
+def build_model_lstm_extended(X_input):
+    model = Sequential()
+
+    model.add(LSTM(1024, input_shape=(X_input.shape[1],X_input.shape[2])))
+    model.add(BatchNormalization())
+    model.add(Dropout(.2))
+
+    model.add(Dense(512, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.1))
+
+    model.add(Dense(512, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.1))
+
+    model.add(Dense(256, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.05))
+
+    model.add(Dense(128, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.05))
+
+    model.add(Dense(64, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.05))
+
+    model.add(Dense(32, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.05))
+
+    model.add(Dense(16, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(.05))
+
+    model.add(Dense(1, init='he_normal', activation='sigmoid'))
+
+    model.compile(loss=binary_crossentropy_with_ranking,optimizer='Adam',metrics=['accuracy', jacek_auc])
+
+    return model
+
+
 def build_model_lstm(X_input):
     model = Sequential()
 
@@ -371,12 +437,6 @@ def build_model_lstm(X_input):
 
     model.add(Dense(1, init='he_normal', activation='sigmoid'))
 
-
-    print('>> load weights...')
-    if debug:
-        model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu2.hdf5')
-    else:
-        model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu2.hdf5')
     model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy', jacek_auc])
 
     return model
@@ -433,20 +493,14 @@ for (inTr, inTe) in kfold.split(X, train_label):
     xte = xte.reshape((xte.shape[0], 1, xte.shape[1]))
     print('>> fitting...')
     # model = baseline_model()
-    model = build_model_lstm(xtr)
+    model = build_model_lstm_extended(xtr)
     if debug: 
         batch_size=2048
     else: 
         batch_size=2048*64
     class_weight = {0:.01,1:.70} # magic  
 
-    # print('>> load weights...')
-    # if debug:
-    #     model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu.hdf5')
-    # else:
-    #     model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu.hdf5')
-
-    filepath="model/weights_improvement_{}percent_option{}_base2_auc.hdf5".format(int(frac*100), OPTION)
+    filepath="model/weights_improvement_{}percent_option{}_base3_auc.hdf5".format(int(frac*100), OPTION)
     checkpoint = ModelCheckpoint(filepath, monitor='val_jacek_auc', verbose=1, 
             save_best_only=True, save_weights_only=True, mode='max', period=1)
     earlystopping = EarlyStopping(monitor='val_jacek_auc',
@@ -468,7 +522,7 @@ sub = pd.DataFrame()
 sub['click_id'] = test_id
 subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
             'features_dl_cv_' + str(int(100*frac)) + \
-            'percent_full_base2.csv.gz'
+            'percent_full_base3.csv.gz'
 
 print(">> Predicting...")
 sub['is_attributed'] = cv_pred * 1.
