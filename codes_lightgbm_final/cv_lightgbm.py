@@ -33,6 +33,10 @@ else:
     day_string = str(now.day)
 yearmonthdate_string = str(now.year) + month_string + day_string
 
+# boosting_type = 'gbdt'
+# boosting_type = 'dart'
+
+
 frm = 1; to = 100
 
 TARGET = ['is_attributed']
@@ -71,24 +75,7 @@ PREDICTORS3 = [
     'ip_app_channel_mean_hour'
     ]     
 
-# OPTION 15 - remove some cat to avoid overfitting?
-PREDICTORS15 = [
-    # core 9
-    'app', 'os', 'hour', 'device', 
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app', 
-    # add
-    'ip_app_count_channel',
-    'ip_nunique_device',
-    'ip_cumcount_os',
-    'app_nunique_channel',
-    'ip_device_os_nextclick',
-    'ip_nextclick',
-    'ip_os_device_channel_app_nextclick',
-    ]
-
+# OPTION 18 - for testing
 PREDICTORS18 = [
     # core 9
     'app', 'os', 'device', 'channel', 'hour',
@@ -119,18 +106,6 @@ NEW_FEATURE = [
     'channel_nunique_app'
     ]
 
-
-
-NEW_FEATURE = [    
-    'channel_count_app',
-    'ip_count_app',
-    'ip_app_count_os',
-    'ip_count_device',
-    'app_count_channel',
-    'ip_device_os_nunique_channel',
-    'channel_nunique_app'
-    ]
-
 CATEGORICAL = [
     'ip', 'app', 'device', 'os', 'channel',     
     'mobile', 'mobile_app', 'mobile_channel', 'app_channel',
@@ -148,21 +123,22 @@ else:
     print('for testing only...')
     print('=======================================================================')
 
+
 def print_memory(print_string=''):
     print('Total memory in use ' + print_string + ': ', process.memory_info().rss/(2**30), ' GB')
+
 
 def get_predictors(option):
     if option==3:
         predictors = PREDICTORS3
-    if option==15:
-        predictors = PREDICTORS15
     if option==18:
-        predictors = PREDICTORS18  	
+        predictors = PREDICTORS18  		
 
     print('------------------------------------------------')
     print('predictors:')
-    for feature in predictors:
-        print (feature)
+    if debug:
+        for feature in predictors:
+            print (feature)
     print('number of features:', len(predictors))            
     return predictors 
 
@@ -211,7 +187,7 @@ def read_processed_h5(filename, predictors):
     return train_df
 
 
-def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max_bin, min_data_in_leaf):
+def DO(num_leaves,max_depth, option):
     print('------------------------------------------------')
     print('start...')
     print('fraction:', frac)
@@ -220,6 +196,7 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
     categorical = get_categorical(predictors)
     target = TARGET
    
+
     if debug==0:
         print('=======================================================================')
         print('process on server...')
@@ -234,26 +211,12 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
         print('=======================================================================')
         print('reading train')
 
-    subfilename = 'final_{}_numleave{}_maxdepth{}_maxbin{}_mininleaf{}_round{}_option{}.csv.gz'. \
-            format(
-                boosting_type,
-                num_leaves,
-                max_depth,
-                max_bin,
-                min_data_in_leaf,
-                num_boost_rounds_lgb,
-                option
-            )
-    modelfilename = 'final_{}_numleave{}_maxdepth{}_maxbin{}_mininleaf{}_round{}_option{}.txt'. \
-            format(
-                boosting_type,
-                num_leaves,
-                max_depth,
-                max_bin,
-                min_data_in_leaf,
-                num_boost_rounds_lgb,
-                option
-            )
+    subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
+            'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
+    modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
+            'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option)
 
     print('----------------------------------------------------------')
     print('SUMMARY:')
@@ -268,7 +231,8 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
 
     print('----------------------------------------------------------')
     train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-    train_df = train_df.sample(frac=frac, random_state = SEED)
+    if frac<1:
+        train_df = train_df.sample(frac=frac, random_state = SEED)
     print_memory('afer reading train:')
     print(train_df.head())
     print("train size: ", len(train_df))
@@ -276,7 +240,8 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
 
     print('----------------------------------------------------------')
     print("Training...")
-    
+    start_time = time.time()
+
     params = {
         'boosting_type': boosting_type,
         'objective': 'binary',
@@ -284,8 +249,9 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
         'learning_rate': 0.02,
         'num_leaves': num_leaves,  # we should let it be smaller than 2^(max_depth)
         'max_depth': max_depth,  # -1 means no limit
-        'min_data_in_leaf': min_data_in_leaf,  # Minimum number of data need in a child(min_data_in_leaf)
-        'max_bin': max_bin,  # Number of bucketed bin for feature values
+        'min_data_in_leaf': 100,  # Minimum number of data need in a child(min_data_in_leaf)
+        # 'max_bin': 512,  # Number of bucketed bin for feature values
+        'max_bin': 100,  # Number of bucketed bin for feature values
         'subsample': 0.5,  # Subsample ratio of the training instance.
         'subsample_freq': 1,  # frequence of subsample, <=0 means no enable
         'feature_fraction': 0.9,  # Subsample ratio of columns when constructing each tree.
@@ -313,21 +279,45 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
     del train_df_array, train_df_labels; gc.collect()                        
     print_memory()                        
     
+    print('>> start cv...')
+
+
+    cv_results  = lgb.cv(params, 
+                        dtrain_lgb, 
+                        categorical_feature = categorical,
+                        num_boost_round=2000,                       
+                        metrics='auc',
+                        seed = SEED,
+                        shuffle = False,
+                        stratified=True, 
+                        nfold=5, 
+                        show_stdv=True,
+                        early_stopping_rounds=30, 
+                        verbose_eval=True)                     
+
+
+    print('[{}]: model training time'.format(time.time() - start_time))
+    print('Total memory in use after cv training: ', process.memory_info().rss/(2**30), ' GB\n')
+
+
+    # print (cv_results)
+    print('--------------------------------------------------------------------') 
+    num_boost_rounds_lgb = len(cv_results['auc-mean'])
+    print('num_boost_rounds_lgb=' + str(num_boost_rounds_lgb))
+
     print ('>> start trainning... ')
-    start_time = time.time()
     model_lgb = lgb.train(
                         params, dtrain_lgb, 
                         num_boost_round=num_boost_rounds_lgb,
                         feature_name = predictors,
-                        categorical_feature = categorical
-                        )
-    del dtrain_lgb; gc.collect()
-    print('[{}]: model training time'.format(time.time() - start_time))
+                        categorical_feature = categorical)
+    del dtrain_lgb
+    gc.collect()
 
     print('--------------------------------------------------------------------') 
     print('>> save model...')
     # save model to file
-    model_lgb.save_model(modelfilename)
+    model_lgb.save_model(modelfilename+'.txt')
 
     print('--------------------------------------------------------------------') 
     print('>> reading test')
@@ -344,75 +334,29 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
     print("writing...")
     sub.to_csv(subfilename,index=False,compression='gzip')
     print("done...")
-    
+    return sub
 
-# num_leaves_list =           [512,512,2048,2048]
-# max_depth_list =            [64,64,256,256]
-# num_boost_rounds_lgb_list = [400,400,400,400]
-# max_bin_list =              [1024,1024,2048,2048]
-# min_data_in_leaf_list =     [128,128,64,64]
+num_leaves_list =   [31,    31,     9,      9,      7,      7]
+max_depth_list =    [7,     7,      4,      4,      3,      3]
+option_list =       [18,    3,      18,     3,      18,     3]
 
-
-# num_leaves_list =           [7,7,7,16,16,16,128,128,128]
-# max_depth_list =            [3,3,3,-1,-1,-1,16,16,16]
-# num_boost_rounds_lgb_list = [400,400,400,300,300,300,400,400,400]
-# max_bin_list =              [100,100,100,64,64,64,512,512,512]
-# min_data_in_leaf_list =     [100,100,100,16,16,16,128,128,128]
-
-
-# num_leaves_list =           [128,   128,    16,     16,     31,     31]
-# max_depth_list =            [16,    16,     -1,     -1,     7,      7]
-# num_boost_rounds_lgb_list = [400,   400,    300,    300,    500,    500]
-# max_bin_list =              [512,   512,    64,     64,     100,    100]
-# min_data_in_leaf_list =     [128,   128,    16,     16,     100,    100]
-# option_list = [18,3,18,3,18,3]
-
-# num_leaves_list =           [7,     7,      9,      9,      31,     31]
-# max_depth_list =            [3,     3,      4,      4,      7,      7]
-# num_boost_rounds_lgb_list = [900,   900,    800,    800,    600,    600]
-# max_bin_list =              [100,   100,    100,    100,    100,    100]
-# min_data_in_leaf_list =     [100,   100,    100,    100,    100,    100]
-# option_list =               [18,    3,      18,     3,      18,     3]
-
-num_leaves_list =           [9,         63,         31,         15]
-max_depth_list =            [4,         8,          7,          6]
-num_boost_rounds_lgb_list = [800,       500,        700,        800]
-max_bin_list =              [100,       100,        100,        100]
-min_data_in_leaf_list =     [100,       100,        128,        128]
-option_list =               [18,        3,          18,         18]
-
-
-# for option in option_list:
-# for boosting_type in ['gbdt', 'dart']:
-for boosting_type in ['gbdt']:    
-    for k in range(len(num_boost_rounds_lgb_list)):
-        option = option_list[k]
-        num_boost_rounds_lgb = num_boost_rounds_lgb_list[k]
-        num_leaves = num_leaves_list[k]
-        max_depth = max_depth_list[k]  
-        max_bin = max_bin_list[k]  
-        min_data_in_leaf = min_data_in_leaf_list[k]
-
-        print ('==============================================================')
-        # print('num leaves:', num_leaves)
-        # print('max depth:', max_depth)
-        # print ('option:', option)
-        # print ('num_boost_rounds_lgb:', num_boost_rounds_lgb)
-        # print ('max_bin:', max_bin)
-
-        modelfilename = 'final_{}_numleave{}_maxdepth{}_maxbin{}_mininleaf{}_round{}_option{}.txt'. \
-                format(
-                    boosting_type,
-                    num_leaves,
-                    max_depth,
-                    max_bin,
-                    min_data_in_leaf,
-                    num_boost_rounds_lgb,
-                    option
-                )
-        print (modelfilename)                
-        if os.path.isfile(modelfilename):
+for boosting_type in ['gbdt']:
+    for i in range(len(num_leaves_list)):
+        print ('=============================================================================================')
+        num_leaves = num_leaves_list[i]
+        max_depth = max_depth_list[i]
+        option = option_list[i]
+        print('num leaves:', num_leaves)
+        print('max depth:', max_depth)
+        if debug: print ('option:', option)
+        predictors = get_predictors(option)
+        subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
+                'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
+                'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
+        print(subfilename)                
+        if debug: print (subfilename)                
+        if os.path.isfile(subfilename):
             print('--------------------------------------')
             print('Already trained...')
         else:             
-            TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max_bin, min_data_in_leaf)
+            sub=DO(num_leaves,max_depth, option)

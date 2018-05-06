@@ -318,82 +318,30 @@ def jacek_auc(y_true, y_pred):
        score = tf.identity(score)
    return score
 
-def binary_crossentropy_with_ranking(y_true, y_pred):
-    """ Trying to combine ranking loss with numeric precision"""
-    # first get the log loss like normal
-    logloss = K.mean(K.binary_crossentropy(y_pred, y_true), axis=-1)
-    
-    # next, build a rank loss
-    
-    # clip the probabilities to keep stability
-    y_pred_clipped = K.clip(y_pred, K.epsilon(), 1-K.epsilon())
-
-    # translate into the raw scores before the logit
-    y_pred_score = K.log(y_pred_clipped / (1 - y_pred_clipped))
-
-    # determine what the maximum score for a zero outcome is
-    y_pred_score_zerooutcome_max = K.max(y_pred_score * (y_true <1))
-
-    # determine how much each score is above or below it
-    rankloss = y_pred_score - y_pred_score_zerooutcome_max
-
-    # only keep losses for positive outcomes
-    rankloss = rankloss * y_true
-
-    # only keep losses where the score is below the max
-    rankloss = K.square(K.clip(rankloss, -100, 0))
-
-    # average the loss for just the positive outcomes
-    rankloss = K.sum(rankloss, axis=-1) / (K.sum(y_true > 0) + 1)
-
-    # return (rankloss + 1) * logloss - an alternative to try
-    return rankloss + logloss
-
 def build_model_lstm_extended(X_input):
     model = Sequential()
 
-    model.add(LSTM(1024, input_shape=(X_input.shape[1],X_input.shape[2])))
-    model.add(BatchNormalization())
+    model.add(LSTM(512, return_sequences=True, input_shape=(X_input.shape[1],X_input.shape[2])))
     model.add(Dropout(.2))
 
-    model.add(Dense(512, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.1))
+    model.add(LSTM(256, return_sequences=True))
+    model.add(Dropout(.2))
 
-    model.add(Dense(512, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.1))
-
-    model.add(Dense(256, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
-
-    model.add(Dense(128, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
+    model.add(LSTM(128))
+    model.add(Dropout(.2))
 
     model.add(Dense(64, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
     model.add(Dropout(.05))
 
     model.add(Dense(32, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
     model.add(Dropout(.05))
 
     model.add(Dense(16, init='he_normal'))
-    model.add(PReLU())
-    model.add(BatchNormalization())
-    model.add(Dropout(.05))
+    model.add(Dropout(.05))        
 
     model.add(Dense(1, init='he_normal', activation='sigmoid'))
 
-    model.compile(loss=binary_crossentropy_with_ranking,optimizer='Adam',metrics=['accuracy', jacek_auc])
+    model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy', jacek_auc])
 
     return model
 

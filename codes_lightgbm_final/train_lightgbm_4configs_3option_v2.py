@@ -346,19 +346,20 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
     print("done...")
     
 
-# num_leaves_list =           [512,512,2048,2048]
-# max_depth_list =            [64,64,256,256]
-# num_boost_rounds_lgb_list = [400,400,400,400]
-# max_bin_list =              [1024,1024,2048,2048]
-# min_data_in_leaf_list =     [128,128,64,64]
-
-
 # num_leaves_list =           [7,7,7,16,16,16,128,128,128]
 # max_depth_list =            [3,3,3,-1,-1,-1,16,16,16]
 # num_boost_rounds_lgb_list = [400,400,400,300,300,300,400,400,400]
 # max_bin_list =              [100,100,100,64,64,64,512,512,512]
 # min_data_in_leaf_list =     [100,100,100,16,16,16,128,128,128]
 
+
+# num_leaves_list =           [512,512,2048,2048]
+# max_depth_list =            [64,64,256,256]
+# num_boost_rounds_lgb_list = [400,400,400,400]
+# max_bin_list =              [1024,1024,2048,2048]
+# min_data_in_leaf_list =     [128,128,64,64]
+
+# option_list = [18,3,18,3]
 
 # num_leaves_list =           [128,   128,    16,     16,     31,     31]
 # max_depth_list =            [16,    16,     -1,     -1,     7,      7]
@@ -367,25 +368,18 @@ def TRAIN(boosting_type, num_leaves,max_depth, option, num_boost_rounds_lgb, max
 # min_data_in_leaf_list =     [128,   128,    16,     16,     100,    100]
 # option_list = [18,3,18,3,18,3]
 
-# num_leaves_list =           [7,     7,      9,      9,      31,     31]
-# max_depth_list =            [3,     3,      4,      4,      7,      7]
-# num_boost_rounds_lgb_list = [900,   900,    800,    800,    600,    600]
-# max_bin_list =              [100,   100,    100,    100,    100,    100]
-# min_data_in_leaf_list =     [100,   100,    100,    100,    100,    100]
-# option_list =               [18,    3,      18,     3,      18,     3]
-
-num_leaves_list =           [9,         63,         31,         15]
-max_depth_list =            [4,         8,          7,          6]
-num_boost_rounds_lgb_list = [800,       500,        700,        800]
-max_bin_list =              [100,       100,        100,        100]
-min_data_in_leaf_list =     [100,       100,        128,        128]
-option_list =               [18,        3,          18,         18]
-
+num_leaves_list =           [31,        63,         31,         128]
+max_depth_list =            [7,         8,          7,          16]
+num_boost_rounds_lgb_list = [600,       500,        600,        500]
+max_bin_list =              [100,       100,        100,        512]
+min_data_in_leaf_list =     [128,       100,        100,        128]
+option_list =               [18,        18,         18,         18]
 
 # for option in option_list:
-# for boosting_type in ['gbdt', 'dart']:
-for boosting_type in ['gbdt']:    
+# for boosting_type in ['dart', 'gbdt']:
+for boosting_type in ['dart']:    
     for k in range(len(num_boost_rounds_lgb_list)):
+        # k = len(num_boost_rounds_lgb_list) - i - 1
         option = option_list[k]
         num_boost_rounds_lgb = num_boost_rounds_lgb_list[k]
         num_leaves = num_leaves_list[k]

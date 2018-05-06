@@ -378,10 +378,25 @@ def build_model_lstm(X_input):
 def baseline_model():
     model = Sequential()
 
-    model.add(Dense(512, input_dim=X.shape[1], init='he_normal'))
+    model.add(Dense(1024, input_dim=X.shape[1], init='he_normal'))
     model.add(PReLU())
     model.add(BatchNormalization())
-    model.add(Dropout(0.9))
+    model.add(Dropout(0.8))
+
+    model.add(Dense(512, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(0.8))
+
+    model.add(Dense(256, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(0.8))
+
+    model.add(Dense(128, init='he_normal'))
+    model.add(PReLU())
+    model.add(BatchNormalization())
+    model.add(Dropout(0.8))    
 
     model.add(Dense(64, init='he_normal'))
     model.add(PReLU())
@@ -423,29 +438,20 @@ for (inTr, inTe) in kfold.split(X, train_label):
     xte = X[inTe]
     yte = train_label[inTe]
     print('>> transform')
-    # xtr = xtr.reshape((xtr.shape[0], 1, xtr.shape[1]))
-    # xte = xte.reshape((xte.shape[0], 1, xte.shape[1]))
     print('>> fitting...')
     model = baseline_model()
-    # model = build_model_lstm(xtr)
     if debug: 
         batch_size=2048
     else: 
         batch_size=2048*64
     class_weight = {0:.01,1:.70} # magic  
 
-    # print('>> load weights...')
-    # if debug:
-    #     model.load_weights('model/weights_improvement_1percent_option18_base2_auc.hdf5')
-    # else:
-    #     model.load_weights('model/weights_improvement_80percent_option18_base2_acc.h5')
-
     filepath="model/weights_improvement_{}percent_option{}_base1_auc.hdf5".format(int(frac*100), OPTION)
     checkpoint = ModelCheckpoint(filepath, monitor='val_jacek_auc', verbose=1, 
             save_best_only=True, save_weights_only=True, mode='max', period=1)
     earlystopping = EarlyStopping(monitor='val_jacek_auc',
             min_delta=0,
-            patience=20,
+            patience=10,
             verbose=0, mode='max')
     # callbacks_list = [checkpoint, earlystopping]          
     callbacks_list = [checkpoint]    

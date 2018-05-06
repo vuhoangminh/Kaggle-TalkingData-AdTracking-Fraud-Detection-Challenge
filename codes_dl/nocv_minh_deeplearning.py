@@ -4,7 +4,7 @@
 debug = 0
 frac = 0.8
 
-OPTION = 18
+OPTION = 3
 
 import pandas as pd
 import numpy as np
@@ -374,9 +374,9 @@ def build_model_lstm(X_input):
 
     print('>> load weights...')
     if debug:
-        model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu2.hdf5')
+        model.load_weights('model/weights_improvement_80percent_option3_base2_auc_final.hdf5')
     else:
-        model.load_weights('model/weights_improvement_80percent_option18_base2_auc_bu2.hdf5')
+        model.load_weights('model/weights_improvement_80percent_option3_base2_auc_final.hdf5')
     model.compile(loss='binary_crossentropy',optimizer='Adam',metrics=['accuracy', jacek_auc])
 
     return model
@@ -451,10 +451,10 @@ for (inTr, inTe) in kfold.split(X, train_label):
             save_best_only=True, save_weights_only=True, mode='max', period=1)
     earlystopping = EarlyStopping(monitor='val_jacek_auc',
             min_delta=0,
-            patience=20,
+            patience=0,
             verbose=0, mode='max')
-    # callbacks_list = [checkpoint, earlystopping]          
-    callbacks_list = [checkpoint]    
+    callbacks_list = [checkpoint, earlystopping]          
+    # callbacks_list = [checkpoint]    
     
     model.fit(xtr, ytr, epochs=500, batch_size=batch_size, verbose=1, class_weight=class_weight,
             validation_data=[xte, yte], callbacks=callbacks_list)
