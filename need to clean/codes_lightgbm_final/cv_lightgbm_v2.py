@@ -33,7 +33,7 @@ else:
     day_string = str(now.day)
 yearmonthdate_string = str(now.year) + month_string + day_string
 
-boosting_type = 'gbdt'
+# boosting_type = 'gbdt'
 # boosting_type = 'dart'
 
 
@@ -75,111 +75,27 @@ PREDICTORS3 = [
     'ip_app_channel_mean_hour'
     ]     
 
-# OPTION 10 - CORE
-PREDICTORS10 = [
-    # core 10
-    'app', 'os', 'channel', 'hour',
-    'mobile', 'device',
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app'
-    ]
-
-# OPTION 11
-PREDICTORS11 = [
-    # core 10
-    'app', 'os', 'channel', 'hour', 'device',
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app',
-    # add
-    'ip_app_nextclick',
-    'ip_channel_nextclick',
-    'ip_device_os_nextclick',
-    'ip_nextclick',
-    'ip_app_os_nunique_channel',
-    'ip_app_channel_var_day',
-    'ip_mobile_app_day_std_hour'
-    ]
-
-# OPTION 15 - remove some cat to avoid overfitting?
-PREDICTORS15 = [
+# OPTION 18 - for testing
+PREDICTORS18 = [
     # core 9
-    'app', 'os', 'hour', 'device', 
+    'app', 'os', 'device', 'channel', 'hour',
     'ip_os_device_app_nextclick',
     'ip_device_os_nunique_app',
     'ip_nunique_channel',
     'ip_nunique_app', 
     # add
-    'ip_app_count_channel',
     'ip_nunique_device',
     'ip_cumcount_os',
-    'app_nunique_channel',
     'ip_device_os_nextclick',
-    'ip_nextclick',
-    'ip_os_device_channel_app_nextclick',
-    ]
-
-# OPTION 17 - remove some cat to avoid overfitting?
-PREDICTORS17 = [
-    # core 9
-    'channel', 'app', 'os', 'hour', 'device', 
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app', 
-    # add
-    'ip_app_count_channel',
-    'ip_nunique_device',
-    'ip_cumcount_os',
-    'app_nunique_channel',
-    'ip_device_os_nextclick',
-    'ip_nextclick',
-    'ip_os_device_channel_app_nextclick',
-    'ip_count_app',
-    'ip_app_count_os',
-    'channel_nunique_app',
-    'ip_count_device',
-    'app_count_channel',
-    'ip_device_os_nunique_channel'
-    ]
-
-# OPTION 16 - for testing
-PREDICTORS16 = [
-    # core 9
-    'app', 'os', 'hour', 'device', 'channel', 'mobile',
-    'mobile_app',
-    'mobile_channel',
-    'app_channel',
-    'ip_os_device_app_nextclick',
-    'ip_device_os_nunique_app',
-    'ip_nunique_channel',
-    'ip_nunique_app', 
-    # add
-    'ip_app_count_channel',
-    'ip_nunique_device',
-    'ip_cumcount_os',
-    'app_nunique_channel',
-    'ip_device_os_nextclick',
-    'ip_nextclick',
     'ip_os_device_channel_app_nextclick',
     'ip_app_os_count_channel',
-    'ip_app_nunique_os',
-    'ip_channel_nextclick',
-    'ip_day_hour_count_channel',
-    'ip_os_device_channel_nextclick',
-    'channel_count_app',
     'ip_count_app',
-    'ip_app_count_os',
-    'ip_count_device',
     'app_count_channel',
     'ip_device_os_nunique_channel',
-    'channel_nunique_app',
-    'ip_day_channel_var_hour'
-    ]
-
+    'ip_nextclick',
+    'ip_channel_nextclick'
+    ]	
+	
 NEW_FEATURE = [    
     'channel_count_app',
     'ip_count_app',
@@ -215,21 +131,14 @@ def print_memory(print_string=''):
 def get_predictors(option):
     if option==3:
         predictors = PREDICTORS3
-    if option==10:
-        predictors = PREDICTORS10
-    if option==11:
-        predictors = PREDICTORS11
-    if option==15:
-        predictors = PREDICTORS15
-    if option==16:
-        predictors = PREDICTORS16
-    if option==17:
-        predictors = PREDICTORS17
+    if option==18:
+        predictors = PREDICTORS18  		
 
     print('------------------------------------------------')
     print('predictors:')
-    for feature in predictors:
-        print (feature)
+    if debug:
+        for feature in predictors:
+            print (feature)
     print('number of features:', len(predictors))            
     return predictors 
 
@@ -278,7 +187,7 @@ def read_processed_h5(filename, predictors):
     return train_df
 
 
-def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
+def DO(num_leaves,max_depth, option):
     print('------------------------------------------------')
     print('start...')
     print('fraction:', frac)
@@ -303,10 +212,10 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
         print('reading train')
 
     subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_nocv_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
     modelfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-            'features_' + boosting_type + '_nocv_' + str(int(100*frac)) + \
+            'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
             'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option)
 
     print('----------------------------------------------------------')
@@ -322,7 +231,8 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
 
     print('----------------------------------------------------------')
     train_df = read_processed_h5(TRAIN_HDF5, predictors+target)
-    train_df = train_df.sample(frac=frac, random_state = SEED)
+    if frac<1:
+        train_df = train_df.sample(frac=frac, random_state = SEED)
     print_memory('afer reading train:')
     print(train_df.head())
     print("train size: ", len(train_df))
@@ -330,7 +240,8 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
 
     print('----------------------------------------------------------')
     print("Training...")
-    
+    start_time = time.time()
+
     params = {
         'boosting_type': boosting_type,
         'objective': 'binary',
@@ -338,8 +249,9 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
         'learning_rate': 0.2,
         'num_leaves': num_leaves,  # we should let it be smaller than 2^(max_depth)
         'max_depth': max_depth,  # -1 means no limit
-        'min_data_in_leaf': 16,  # Minimum number of data need in a child(min_data_in_leaf)
-        'max_bin': 64,  # Number of bucketed bin for feature values
+        'min_data_in_leaf': 128,  # Minimum number of data need in a child(min_data_in_leaf)
+        # 'max_bin': 512,  # Number of bucketed bin for feature values
+        'max_bin': 100,  # Number of bucketed bin for feature values
         'subsample': 0.5,  # Subsample ratio of the training instance.
         'subsample_freq': 1,  # frequence of subsample, <=0 means no enable
         'feature_fraction': 0.9,  # Subsample ratio of columns when constructing each tree.
@@ -367,7 +279,31 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
     del train_df_array, train_df_labels; gc.collect()                        
     print_memory()                        
     
-    
+    print('>> start cv...')
+
+
+    cv_results  = lgb.cv(params, 
+                        dtrain_lgb, 
+                        categorical_feature = categorical,
+                        num_boost_round=2000,                       
+                        metrics='auc',
+                        seed = SEED,
+                        shuffle = False,
+                        stratified=True, 
+                        nfold=5, 
+                        show_stdv=True,
+                        early_stopping_rounds=30, 
+                        verbose_eval=True)                     
+
+
+    print('[{}]: model training time'.format(time.time() - start_time))
+    print('Total memory in use after cv training: ', process.memory_info().rss/(2**30), ' GB\n')
+
+
+    # print (cv_results)
+    print('--------------------------------------------------------------------') 
+    num_boost_rounds_lgb = len(cv_results['auc-mean'])
+    print('num_boost_rounds_lgb=' + str(num_boost_rounds_lgb))
 
     print ('>> start trainning... ')
     model_lgb = lgb.train(
@@ -400,33 +336,28 @@ def TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb):
     print("done...")
     return sub
 
-num_leaves_list = [16]
-max_depth_list = [-1]
-# option_list = [15, 11, 10]
-# num_boost_rounds_lgb_list = [200, 170, 156]
-option_list = [15, 17, 11, 10]
-num_boost_rounds_lgb_list = [200, 200, 170, 156]
+num_leaves_list =           [31,        63,         31,         128]
+max_depth_list =            [7,         8,          7,          16]
+option_list =               [18,        18,         18,         18]
 
-# for option in option_list:
-for k in range(len(num_boost_rounds_lgb_list)):
-    option = option_list[k]
-    num_boost_rounds_lgb = num_boost_rounds_lgb_list[k]
+for boosting_type in ['dart','gbdt']:
     for i in range(len(num_leaves_list)):
-        print ('==============================================================')
+        print ('=============================================================================================')
+        # i = len(num_leaves_list)-k-1
         num_leaves = num_leaves_list[i]
         max_depth = max_depth_list[i]
+        option = option_list[i]
         print('num leaves:', num_leaves)
         print('max depth:', max_depth)
-        print ('option:', option)
-        print ('num_boost_rounds_lgb:', num_boost_rounds_lgb)
-
+        if debug: print ('option:', option)
         predictors = get_predictors(option)
         subfilename = yearmonthdate_string + '_' + str(len(predictors)) + \
-                'features_' + boosting_type + '_nocv_' + str(int(100*frac)) + \
+                'features_' + boosting_type + '_cv_' + str(int(100*frac)) + \
                 'percent_full_%d_%d'%(num_leaves,max_depth) + '_OPTION' + str(option) + '.csv.gz'
+        print(subfilename)                
         if debug: print (subfilename)                
         if os.path.isfile(subfilename):
             print('--------------------------------------')
             print('Already trained...')
         else:             
-            sub=TRAIN(num_leaves,max_depth, option, num_boost_rounds_lgb)
+            sub=DO(num_leaves,max_depth, option)

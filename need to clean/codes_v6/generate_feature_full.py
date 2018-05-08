@@ -1,4 +1,4 @@
-debug=1
+debug=0
 print('debug', debug)
 
 import argparse
@@ -275,6 +275,7 @@ def generate_groupby_by_type_and_columns(train_df, selcols, apply_type):
             col_extracted[feature_name] = col_temp.values
             del col_temp; gc.collect()
 
+        print('>> saving...')
         col_extracted.to_csv(filename, index=False)
         # if debug==2: print(train_df.head()); print(col_temp.head())
         del col_extracted; gc.collect()
@@ -420,7 +421,16 @@ GROUP_BY_NEXT_CLICKS = [
     # V3
     ['ip', 'os', 'device', 'app'],
     ['ip', 'os', 'device', 'channel'],
-    ['ip', 'os', 'device', 'channel', 'app']
+    ['ip', 'os', 'device', 'channel', 'app'],
+
+    # V4
+    # ['ip', 'app', 'device', 'os', 'channel'],
+    ['ip', 'os', 'device', 'app', 'hour'],
+    ['ip', 'os', 'device', 'channel', 'hour'],
+    ['device'],
+    ['device', 'channel'],     
+    ['app', 'device', 'channel'],
+    ['device', 'hour']
 ]
 
 def generate_click_anttip(train_df, cols, which_click):   
@@ -520,7 +530,10 @@ MINH_LIST_COUNT =[
     ['ip','mobile_app','day','hour'],
     ['ip','mobile_channel','day','hour'],
     ['ip','app_channel','day','hour'],
-    ['ip', 'mobile','app_channel','day','hour']
+    ['ip', 'mobile','app_channel','day','hour'],
+    ['ip', 'day', 'hour'],
+    ['ip', 'app'],
+    ['ip', 'app', 'os']
 ]
 
 REPLICATE_LIST_NUNIQUE = [
@@ -536,6 +549,7 @@ REPLICATE_LIST_NUNIQUE = [
     ['ip','app', 'os', 'channel'],
     ['ip', 'device', 'os', 'channel'],
     ['channel', 'app'],
+    ['os', 'device', 'app', 'channel', 'hour']
 ]
 
 REPLICATE_LIST_COUNT = [
@@ -547,6 +561,7 @@ REPLICATE_LIST_COUNT = [
     ['ip','device'],
     ['app', 'channel'],
     ['channel', 'app'],
+    ['ip', 'day', 'hour']
 ]
 
 REPLICATE_LIST_CUMCOUNT = [
@@ -563,11 +578,10 @@ REPLICATE_LIST_VAR = [
 ]
 
 REPLICATE_LIST_MEAN = [
-    ['ip','app', 'channel','hour']
+    ['ip','app', 'channel','hour'],
+    # ['ip', 'device', 'os', 'app'],
+    ['os', 'device', 'app', 'channel', 'hour']
 ]
-
-        # 'ip_day_channel_var_hour', # miss
-        # 'ip_day_channel_var_hour', # miss
 
 
 def replicate_result(train_df):
@@ -820,4 +834,5 @@ def main():
     print('------------------------------------------------------')
     print('>> create kernel click anttip...')
     create_kernel_click_anttip(train_df, 'next')
+    print('done...')
 main()
