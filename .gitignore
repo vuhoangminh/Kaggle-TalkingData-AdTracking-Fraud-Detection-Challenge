@@ -3,3 +3,4 @@ train*
 test*
 val*
 !*.py
+!*.ipynb
